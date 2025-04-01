@@ -15,6 +15,9 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
+import { db } from "@/lib/firebase"
+import { collection, addDoc } from "firebase/firestore"
+import { storageService } from "@/lib/storage"
 
 interface AddVideoDialogProps {
   workspaceName: string
@@ -48,39 +51,41 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     }
   }
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!title || !dueDate || !selectedFile) return
 
     setIsUploading(true)
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          return 100
-        }
-        return prev + 10
-      })
-    }, 300)
+    try {
+      // Upload file using storage service
+      const { url, filename } = await storageService.uploadFile(selectedFile)
 
-    // Simulate upload completion
-    setTimeout(() => {
-      clearInterval(interval)
-      setUploadProgress(100)
+      // Create video data object
+      const videoData = {
+        title,
+        dueDate,
+        videoPath: url,
+        filename,
+        metadata: {
+          size: selectedFile.size,
+          type: selectedFile.type,
+          lastModified: selectedFile.lastModified,
+        },
+        comments: [],
+      }
 
-      // Create a temporary URL for the video file
-      const videoUrl = URL.createObjectURL(selectedFile)
+      // Log to console
+      console.log("Video Data:", videoData)
 
-      // Create a thumbnail (in a real app, you'd generate this from the video)
-      const thumbnailUrl = "/placeholder.svg?height=150&width=250"
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, "projects"), videoData)
+      console.log("Document written with ID:", docRef.id)
 
       // Pass the video data to the parent component
       onVideoAdded({
-        title,
-        dueDate,
-        videoUrl,
-        thumbnail: thumbnailUrl,
+        ...videoData,
+        videoUrl: url,
+        thumbnail: "/placeholder.svg?height=150&width=250",
       })
 
       // Reset form
@@ -90,7 +95,11 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       setIsUploading(false)
       setUploadProgress(0)
       setIsOpen(false)
-    }, 3000)
+    } catch (error) {
+      console.error("Error uploading video:", error)
+      setIsUploading(false)
+      setUploadProgress(0)
+    }
   }
 
   const resetForm = () => {
