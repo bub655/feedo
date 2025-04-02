@@ -19,6 +19,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showControls, setShowControls] = useState(true)
 
   useEffect(() => {
     const video = videoRef.current
@@ -65,14 +66,11 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
         video.pause()
         setIsPlaying(false)
       } else {
-        // The play() method returns a Promise
         await video.play()
         setIsPlaying(true)
       }
     } catch (error) {
-      // Handle any errors that might occur during playback
       console.error("Playback error:", error)
-      // If there was an error playing, make sure UI state is consistent
       setIsPlaying(false)
     }
   }
@@ -188,7 +186,11 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
   }
 
   return (
-    <div className="video-container relative w-full h-full bg-black">
+    <div 
+      className="video-container relative w-full h-full bg-black"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
+    >
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center text-white">
           <p>{error}</p>
@@ -198,9 +200,8 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
           <video 
             ref={videoRef} 
             className="w-full h-full" 
-            poster={thumbnailUrl} 
+            poster={thumbnailUrl}
             onClick={togglePlay}
-            controls
             preload="metadata"
           >
             <source src={videoUrl} type="video/mp4" />
@@ -217,7 +218,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
           )}
 
           {/* Video Controls */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+          <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
             <Slider
               value={[currentTime]}
               min={0}
@@ -251,23 +252,17 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={toggleMute}>
                     {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                   </Button>
-
                   <Slider
                     value={[isMuted ? 0 : volume]}
                     min={0}
                     max={1}
                     step={0.1}
                     onValueChange={handleVolumeChange}
-                    className="w-16"
+                    className="w-20"
                   />
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-white hover:bg-white/20"
-                  onClick={toggleFullscreen}
-                >
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={toggleFullscreen}>
                   <Maximize className="h-5 w-5" />
                 </Button>
               </div>
