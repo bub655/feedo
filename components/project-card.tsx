@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Calendar, MoreVertical, Play, User } from "lucide-react"
@@ -31,6 +31,72 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project, workspaceId }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
+  const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (!project.videoUrl) {
+      console.log('No video URL provided')
+      return
+    }
+
+    const video = videoRef.current
+    if (!video) {
+      console.log('Video ref not available')
+      return
+    }
+
+    const captureFrame = () => {
+      try {
+        console.log('Attempting to capture frame...')
+        // Seek to 1 second into the video
+        video.currentTime = 1.0
+        
+        // Create canvas with video dimensions
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth || 640
+        canvas.height = video.videoHeight || 360
+        
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          console.log('Could not get canvas context')
+          return
+        }
+
+        // Draw the current frame
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        
+        // Convert to data URL
+        const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8)
+        console.log('Successfully captured frame')
+        setThumbnailSrc(thumbnailUrl)
+      } catch (error) {
+        console.error('Error capturing video frame:', error)
+      }
+    }
+
+    const handleTimeUpdate = () => {
+      console.log('Time updated:', video.currentTime)
+      if (video.currentTime >= 1.0) {
+        captureFrame()
+        video.removeEventListener('timeupdate', handleTimeUpdate)
+      }
+    }
+
+    const handleLoadedMetadata = () => {
+      console.log('Video metadata loaded')
+      video.addEventListener('timeupdate', handleTimeUpdate)
+      video.currentTime = 1.0
+    }
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.load()
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('timeupdate', handleTimeUpdate)
+    }
+  }, [project.videoUrl])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -52,9 +118,21 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
+        {/* Hidden video element to capture first frame */}
+        <video 
+          ref={videoRef}
+          className="hidden"
+          preload="metadata"
+          playsInline
+          muted
+          crossOrigin="anonymous"
+        >
+          <source src={project.videoUrl || ''} type="video/mp4" />
+        </video>
+
         <Link href={`/dashboard/video/${project.id}`}>
           <Image
-            src={project.thumbnail || "/placeholder.svg"}
+            src={thumbnailSrc}
             alt={project.title}
             width={250}
             height={150}
@@ -139,4 +217,5 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
     </div>
   )
 }
+
 

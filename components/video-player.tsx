@@ -18,6 +18,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
   const [volume, setVolume] = useState(1)
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const video = videoRef.current
@@ -29,22 +30,31 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration)
+      // Set the video to the first frame
+      video.currentTime = 0
     }
 
     const handleEnded = () => {
       setIsPlaying(false)
     }
 
+    const handleError = (e: Event) => {
+      console.error("Video error:", e)
+      setError("Error loading video. Please try again.")
+    }
+
     video.addEventListener("timeupdate", handleTimeUpdate)
     video.addEventListener("loadedmetadata", handleLoadedMetadata)
     video.addEventListener("ended", handleEnded)
+    video.addEventListener("error", handleError)
 
     return () => {
       video.removeEventListener("timeupdate", handleTimeUpdate)
       video.removeEventListener("loadedmetadata", handleLoadedMetadata)
       video.removeEventListener("ended", handleEnded)
+      video.removeEventListener("error", handleError)
     }
-  }, [])
+  }, [videoUrl])
 
   const togglePlay = async () => {
     const video = videoRef.current
@@ -179,83 +189,92 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
 
   return (
     <div className="video-container relative w-full h-full bg-black">
-      <video 
-        ref={videoRef} 
-        className="w-full h-full" 
-        poster={thumbnailUrl} 
-        onClick={togglePlay}
-        controls
-      >
-        <source src={videoUrl} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
-
-      {/* Play button overlay */}
-      {!isPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center cursor-pointer" onClick={togglePlay}>
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm">
-            <Play className="h-8 w-8" />
-          </div>
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center text-white">
+          <p>{error}</p>
         </div>
-      )}
+      ) : (
+        <>
+          <video 
+            ref={videoRef} 
+            className="w-full h-full" 
+            poster={thumbnailUrl} 
+            onClick={togglePlay}
+            controls
+            preload="metadata"
+          >
+            <source src={videoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
 
-      {/* Video Controls */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
-        <Slider
-          value={[currentTime]}
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          onValueChange={handleSeek}
-          className="mb-2"
-        />
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={skipBackward}>
-              <SkipBack className="h-5 w-5" />
-            </Button>
-
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={togglePlay}>
-              {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-            </Button>
-
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={skipForward}>
-              <SkipForward className="h-5 w-5" />
-            </Button>
-
-            <span className="text-sm">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 w-24">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={toggleMute}>
-                {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-              </Button>
-
-              <Slider
-                value={[isMuted ? 0 : volume]}
-                min={0}
-                max={1}
-                step={0.1}
-                onValueChange={handleVolumeChange}
-                className="w-16"
-              />
+          {/* Play button overlay */}
+          {!isPlaying && (
+            <div className="absolute inset-0 flex items-center justify-center cursor-pointer" onClick={togglePlay}>
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm">
+                <Play className="h-8 w-8" />
+              </div>
             </div>
+          )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
-              onClick={toggleFullscreen}
-            >
-              <Maximize className="h-5 w-5" />
-            </Button>
+          {/* Video Controls */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+            <Slider
+              value={[currentTime]}
+              min={0}
+              max={duration || 100}
+              step={0.1}
+              onValueChange={handleSeek}
+              className="mb-2"
+            />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={skipBackward}>
+                  <SkipBack className="h-5 w-5" />
+                </Button>
+
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={togglePlay}>
+                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                </Button>
+
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={skipForward}>
+                  <SkipForward className="h-5 w-5" />
+                </Button>
+
+                <span className="text-sm">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 w-24">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={toggleMute}>
+                    {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                  </Button>
+
+                  <Slider
+                    value={[isMuted ? 0 : volume]}
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    onValueChange={handleVolumeChange}
+                    className="w-16"
+                  />
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-white hover:bg-white/20"
+                  onClick={toggleFullscreen}
+                >
+                  <Maximize className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }
