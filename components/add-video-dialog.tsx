@@ -57,8 +57,17 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     setIsUploading(true)
 
     try {
+      console.log("Starting upload process...")
+      console.log("File details:", {
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type
+      })
+
       // Upload file using storage service
+      console.log("Uploading file to server...")
       const { url, filename } = await storageService.uploadFile(selectedFile)
+      console.log("File uploaded successfully:", { url, filename })
 
       // Create video data object
       const videoData = {
@@ -75,15 +84,16 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       }
 
       // Log to console
-      console.log("Video Data:", videoData)
+      console.log("Saving video data to Firestore:", videoData)
 
       // Save to Firestore
       const docRef = await addDoc(collection(db, "projects"), videoData)
       console.log("Document written with ID:", docRef.id)
 
-      // Pass the video data to the parent component
+      // Pass the video data to the parent component with the correct document ID
       onVideoAdded({
         ...videoData,
+        id: docRef.id, // Use the actual Firestore document ID
         videoUrl: url,
         thumbnail: "/placeholder.svg?height=150&width=250",
       })

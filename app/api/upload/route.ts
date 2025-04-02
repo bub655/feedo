@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { writeFile } from "fs/promises"
+import { writeFile, mkdir } from "fs/promises"
 import { join } from "path"
 
 export async function POST(request: Request) {
@@ -17,10 +17,22 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
+    // Create videos directory if it doesn't exist
+    const videosDir = join(process.cwd(), "public", "videos")
+    try {
+      await mkdir(videosDir, { recursive: true })
+    } catch (error) {
+      console.error("Error creating videos directory:", error)
+      return NextResponse.json(
+        { error: "Error creating videos directory" },
+        { status: 500 }
+      )
+    }
+
     // Create unique filename
     const timestamp = Date.now()
     const filename = `${timestamp}-${file.name}`
-    const path = join(process.cwd(), "public", "videos", filename)
+    const path = join(videosDir, filename)
 
     // Save file
     await writeFile(path, buffer)

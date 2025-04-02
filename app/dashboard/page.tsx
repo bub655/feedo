@@ -47,7 +47,7 @@ export default function WorkspacePage() {
   const fetchWorkspaces = async () => {
     if (!user) return;
     try {
-      const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || "");
+      const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
@@ -62,7 +62,6 @@ export default function WorkspacePage() {
               return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
             })
           );
-
           // Filter out null values (deleted workspaces) and update user's workspace list
           const validWorkspaces = fetchedWorkspaces.filter(Boolean);
           
@@ -165,32 +164,6 @@ export default function WorkspacePage() {
     } catch (error) {
       console.error("Error creating workspace:", error);
     }
-  }
-
-  const handleAddVideo = (workspaceId: string, videoData: any) => {
-    setWorkspaces(
-      workspaces.map((workspace) => {
-        if (workspace.id === workspaceId) {
-          const newProject = {
-            id: `project-${Date.now()}`,
-            title: videoData.title,
-            thumbnail: videoData.thumbnail || "/placeholder.svg?height=150&width=250",
-            status: "In Progress",
-            dueDate: videoData.dueDate,
-            client: workspace.name,
-            type: "Video",
-            videoUrl: videoData.videoUrl || null,
-          }
-
-          return {
-            ...workspace,
-            videos: workspace.videos + 1,
-            projects: [...workspace.projects, newProject],
-          }
-        }
-        return workspace
-      }),
-    )
   }
 
   return (
@@ -405,7 +378,6 @@ export default function WorkspacePage() {
                 workspace={workspace}
                 isExpanded={expandedWorkspace === workspace.id}
                 onToggle={() => toggleWorkspace(workspace.id)}
-                onAddVideo={(videoData) => handleAddVideo(workspace.id, videoData)}
               />
             ))}
           </div>

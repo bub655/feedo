@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Building, ChevronDown, ChevronUp, Users, Video } from "lucide-react"
 import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
+import { db } from "@/lib/firebase"
+import { doc, updateDoc, arrayUnion } from "firebase/firestore"
 
 interface Project {
   id: string
@@ -30,11 +32,38 @@ interface WorkspaceItemProps {
   workspace: Workspace
   isExpanded: boolean
   onToggle: () => void
-  onAddVideo: (videoData: any) => void
 }
 
-export default function WorkspaceItem({ workspace, isExpanded, onToggle, onAddVideo }: WorkspaceItemProps) {
+export default function WorkspaceItem({ workspace, isExpanded, onToggle }: WorkspaceItemProps) {
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
+
+  const handleVideoAdded = async (videoData: any) => {
+    try {
+      const newProject = {
+        id: videoData.id,
+        title: videoData.title,
+        thumbnail: videoData.thumbnail || "/placeholder.svg?height=150&width=250",
+        status: "In Progress",
+        dueDate: videoData.dueDate,
+        client: workspace.name,
+        type: "Video",
+        videoUrl: videoData.videoUrl || null,
+      }
+
+      // Update workspace in Firestore
+      const workspaceRef = doc(db, "workspaces", workspace.id)
+      await updateDoc(workspaceRef, {
+        projects: arrayUnion(newProject),
+        videos: workspace.videos + 1
+      })
+
+      // Update local state
+      workspace.projects.push(newProject)
+      workspace.videos += 1
+    } catch (error) {
+      console.error("Error adding video to workspace:", error)
+    }
+  }
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
@@ -59,7 +88,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle, onAddVi
         </div>
 
         <div className="flex items-center gap-2">
-          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={onAddVideo} />
+          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (
@@ -72,7 +101,6 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle, onAddVi
         <div className="p-4 border-t border-gray-200">
           <div className="flex justify-between items-center mb-4">
             <h4 className="font-md text-gray-700">Projects</h4>
-            
           </div>
 
           {workspace.projects.length > 0 ? (
@@ -87,7 +115,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle, onAddVi
               <AddVideoDialog
                 workspaceName={workspace.name}
                 buttonText="Add Your First Video"
-                onVideoAdded={onAddVideo}
+                onVideoAdded={handleVideoAdded}
               />
             </div>
           )}

@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { db } from "@/lib/firebase"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
 import {
   ChevronLeft,
   Share2,
@@ -34,24 +36,80 @@ interface VideoPageClientProps {
   videoId: string;
 }
 
+interface Video {
+  id: string;
+  title: string;
+  status: string;
+  videoPath: string;
+  thumbnail: string;
+  client: string;
+  dueDate: string;
+  metadata: {
+    lastModified: string;
+    size: number;
+    type: string;
+  };
+  progress: number;
+}
+
 export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [status, setStatus] = useState("In Progress")
   const [activeTab, setActiveTab] = useState("comments")
+  const [video, setVideo] = useState<Video | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Sample video data
-  const video = {
-    id: videoId,
-    title: "Brand Video Redesign",
-    client: "Acme Corporation",
-    dueDate: "Oct 15, 2023",
-    createdAt: "Sep 28, 2023",
-    description:
-      "Redesign of the brand video for the new product launch. Focus on modern aesthetics and clear messaging.",
-    tags: ["Brand", "Marketing", "Product Launch"],
-    attachments: ["Brief.pdf", "Brand Guidelines.pdf"],
-    thumbnail: "/placeholder.svg?height=150&width=250",
-    videoUrl: "/placeholder.mp4",
-    progress: 75,
+  useEffect(() => {
+    const fetchVideo = async () => {
+      try {
+        console.log("Fetching video with ID:", videoId)
+        
+        const docRef = doc(db, "projects", videoId)
+        const docSnap = await getDoc(docRef)
+        
+        if (docSnap.exists()) {
+          console.log("Video found:", docSnap.data())
+          const videoData = {
+            id: docSnap.id,
+            ...docSnap.data()
+          } as Video
+          setVideo(videoData)
+          setStatus(videoData.status || "In Progress")
+        } else {
+          console.error("No video found with ID:", videoId)
+        }
+      } catch (error) {
+        console.error("Error fetching video:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchVideo()
+  }, [videoId])
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      if (!video) return
+      
+      const docRef = doc(db, "projects", video.id)
+      await updateDoc(docRef, {
+        status: newStatus,
+        lastUpdated: new Date().toISOString()
+      })
+      
+      setStatus(newStatus)
+      setVideo(prev => prev ? { ...prev, status: newStatus } : null)
+    } catch (error) {
+      console.error("Error updating video status:", error)
+    }
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (!video) {
+    return <div>Video not found</div>
   }
 
   const getStatusColor = (status: string) => {
@@ -122,7 +180,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             </div>
 
             <div className="mt-2 flex items-center gap-4">
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={handleStatusChange}>
                 <SelectTrigger className={`h-8 w-40 text-xs font-medium ${getStatusColor(status)}`}>
                   <div className="flex items-center gap-1.5">
                     {getStatusIcon(status)}
@@ -147,7 +205,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
 
           {/* Video Player */}
           <div className="relative aspect-video bg-black">
-            <VideoPlayer videoUrl={video.videoUrl} thumbnailUrl={video.thumbnail} />
+            <VideoPlayer videoUrl={video.videoPath} thumbnailUrl={video.thumbnail} />
           </div>
 
           {/* Video Metadata */}
@@ -171,46 +229,25 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="h-4 w-4 text-gray-400" />
                     <span className="text-gray-500">Created:</span>
-                    <span className="font-medium text-gray-700">{video.createdAt}</span>
+                    <span className="font-medium text-gray-700">
+                      {new Date(video.metadata.lastModified).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Description</h3>
-                <p className="text-sm text-gray-600">{video.description}</p>
-
-                <div className="mt-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Tags</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {video.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                        <Tag className="h-3 w-3" />
-                        {tag}
-                      </Badge>
-                    ))}
-                    <Button variant="outline" size="sm" className="h-6 px-2 text-xs">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Tag
-                    </Button>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Video Details</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Size:</span>
+                    <span className="font-medium text-gray-700">
+                      {(video.metadata.size / (1024 * 1024)).toFixed(2)} MB
+                    </span>
                   </div>
-                </div>
-
-                <div className="mt-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Attachments</h3>
-                  <div className="space-y-2">
-                    {video.attachments.map((attachment, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
-                        <Paperclip className="h-4 w-4 text-gray-400" />
-                        <a href="#" className="text-sky-600 hover:underline">
-                          {attachment}
-                        </a>
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Attachment
-                    </Button>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Type:</span>
+                    <span className="font-medium text-gray-700">{video.metadata.type}</span>
                   </div>
                 </div>
               </div>

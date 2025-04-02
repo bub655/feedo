@@ -179,7 +179,13 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
 
   return (
     <div className="video-container relative w-full h-full bg-black">
-      <video ref={videoRef} className="w-full h-full" poster={thumbnailUrl} onClick={togglePlay}>
+      <video 
+        ref={videoRef} 
+        className="w-full h-full" 
+        poster={thumbnailUrl} 
+        onClick={togglePlay}
+        controls
+      >
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
