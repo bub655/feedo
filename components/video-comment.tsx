@@ -13,11 +13,11 @@ interface User {
 
 interface VideoCommentProps {
   user: User
-  timestamp: string
+  timestamp?: string
   content: string
   time: string
   isResolved?: boolean
-  onResolve: () => void
+  onResolve?: () => void
 }
 
 export default function VideoComment({
@@ -42,26 +42,30 @@ export default function VideoComment({
               <span className="font-medium text-gray-900">{user.name}</span>
               <span className="text-sm text-gray-500">{time}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onResolve}
-              className={`${isResolved ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-500'}`}
-            >
-              <CheckCircle className="h-5 w-5" />
-            </Button>
-          </div>
-
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="secondary" className="bg-gray-100">
-              {timestamp}
-            </Badge>
-            {isResolved && (
-              <Badge variant="secondary" className="bg-green-50 text-green-700">
-                Resolved
-              </Badge>
+            {onResolve && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onResolve}
+                className={`${isResolved ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-500'}`}
+              >
+                <CheckCircle className="h-5 w-5" />
+              </Button>
             )}
           </div>
+
+          {timestamp && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="secondary" className="bg-gray-100">
+                {timestamp}
+              </Badge>
+              {isResolved && (
+                <Badge variant="secondary" className="bg-green-50 text-green-700">
+                  Resolved
+                </Badge>
+              )}
+            </div>
+          )}
 
           <p className="mt-2 text-sm text-gray-700">{content}</p>
         </div>

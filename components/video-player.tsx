@@ -8,9 +8,10 @@ import { Slider } from "@/components/ui/slider"
 interface VideoPlayerProps {
   videoUrl: string
   thumbnailUrl?: string
+  onTimeUpdate?: (time: number) => void
 }
 
-export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps) {
+export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -27,6 +28,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
 
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime)
+      onTimeUpdate?.(video.currentTime)
     }
 
     const handleLoadedMetadata = () => {
@@ -55,7 +57,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl }: VideoPlayerProps
       video.removeEventListener("ended", handleEnded)
       video.removeEventListener("error", handleError)
     }
-  }, [videoUrl])
+  }, [videoUrl, onTimeUpdate])
 
   const togglePlay = async () => {
     const video = videoRef.current

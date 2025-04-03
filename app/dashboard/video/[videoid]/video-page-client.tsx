@@ -30,6 +30,7 @@ import { Progress } from "@/components/ui/progress"
 import VideoComment from "@/components/video-comment"
 import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
+import AnnotationCanvas from "@/components/annotation-canvas"
 
 interface VideoPageClientProps {
   videoId: string
@@ -50,12 +51,13 @@ interface Video {
   }
   progress: number
   comments?: Comment[]
+  annotations?: Annotation[]
 }
 
 interface Comment {
   id: string
   content: string
-  timestamp: string
+  timestamp: string | null
   createdAt: Timestamp
   userId: string
   userName: string
@@ -63,13 +65,27 @@ interface Comment {
   isResolved: boolean
 }
 
+interface Annotation {
+  id: string
+  data: string
+  timestamp: string
+  timeFormatted: string
+  createdAt: Timestamp
+  userId: string
+  userName: string
+  userImageUrl: string
+}
+
 export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const { user } = useUser()
   const [video, setVideo] = useState<Video | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
+  const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
   const [commentInput, setCommentInput] = useState("")
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null)
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -83,10 +99,11 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             id: docSnap.id,
             ...videoData,
           } as Video)
-          // Set comments from the video document
+          // Set comments and annotations from the video document
           setComments(videoData.comments?.sort((a: Comment, b: Comment) => 
             b.createdAt.toMillis() - a.createdAt.toMillis()
           ) || [])
+          setAnnotations(videoData.annotations || [])
         }
       } catch (error) {
         console.error("Error fetching video:", error)
@@ -139,10 +156,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
 
     try {
       const docRef = doc(db, "projects", videoId)
+      const hasTimestamp = commentInput.startsWith("@time")
+      const content = hasTimestamp ? commentInput.replace("@time", "").trim() : commentInput
+      const timestamp = hasTimestamp ? formatTime(currentTime) : null
+
       const newComment: Comment = {
-        id: crypto.randomUUID(), // Generate a unique ID
-        content: commentInput.trim(),
-        timestamp: `${Math.floor(currentTime / 60)}:${String(Math.floor(currentTime % 60)).padStart(2, '0')}`,
+        id: crypto.randomUUID(),
+        content,
+        timestamp,
         createdAt: Timestamp.now(),
         userId: user.id,
         userName: user.fullName || user.username || 'Anonymous',
@@ -161,6 +182,63 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     } catch (error) {
       console.error("Error adding comment:", error)
     }
+  }
+
+  const handleSaveAnnotation = async (annotationData: string) => {
+    if (!user || !video) return
+
+    try {
+      const docRef = doc(db, "projects", videoId)
+      const newAnnotation: Annotation = {
+        id: crypto.randomUUID(),
+        data: annotationData,
+        timestamp: formatTime(currentTime),
+        timeFormatted: formatTime(currentTime),
+        createdAt: Timestamp.now(),
+        userId: user.id,
+        userName: user.fullName || user.username || 'Anonymous',
+        userImageUrl: user.imageUrl
+      }
+
+      // Add the new annotation to the project document
+      await updateDoc(docRef, {
+        annotations: arrayUnion(newAnnotation)
+      })
+
+      // Update local state
+      setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation])
+      setIsDrawing(false)
+    } catch (error) {
+      console.error("Error saving annotation:", error)
+    }
+  }
+
+  const handleDeleteAnnotation = async (annotationId: string) => {
+    if (!video) return
+
+    try {
+      const docRef = doc(db, "projects", videoId)
+      const annotationToDelete = annotations.find(a => a.id === annotationId)
+
+      if (annotationToDelete) {
+        await updateDoc(docRef, {
+          annotations: arrayRemove(annotationToDelete)
+        })
+
+        // Update local state
+        setAnnotations(prevAnnotations => 
+          prevAnnotations.filter(annotation => annotation.id !== annotationId)
+        )
+      }
+    } catch (error) {
+      console.error("Error deleting annotation:", error)
+    }
+  }
+
+  const formatTime = (time: number): string => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
   }
 
   if (loading) {
@@ -191,7 +269,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />
-      
+
       <div className="mx-auto max-w-7xl px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -199,7 +277,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             <ChevronLeft className="mr-1 -mt-0.5 inline-block h-4 w-4" />
             Back to projects
           </Link>
-          
+
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{video.title}</h1>
             <div className="flex items-center gap-2">
@@ -217,10 +295,20 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
-            {/* Video Player */}
+            {/* Video Player with Annotation Canvas */}
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="aspect-video bg-black">
-                <VideoPlayer videoUrl={video.videoPath} thumbnailUrl={video.thumbnail} />
+              <div className="aspect-video bg-black relative">
+                <VideoPlayer 
+                  videoUrl={video.videoPath} 
+                  thumbnailUrl={video.thumbnail}
+                  onTimeUpdate={setCurrentTime}
+                />
+                <AnnotationCanvas
+                  isDrawing={isDrawing}
+                  setIsDrawing={setIsDrawing}
+                  onSave={handleSaveAnnotation}
+                  selectedAnnotation={selectedAnnotation}
+                />
               </div>
             </div>
 
@@ -276,33 +364,72 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             </div>
           </div>
 
-          {/* Comments Section */}
+          {/* Comments and Annotations Section */}
           <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-200 px-6 py-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-gray-400" />
-                <h2 className="text-lg font-medium text-gray-900">Comments</h2>
+                <h2 className="text-lg font-medium text-gray-900">Comments & Annotations</h2>
               </div>
             </div>
 
             <div className="flex flex-col">
-              {/* Comments List */}
+              {/* Timeline Items */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
-                {comments.map(comment => (
-                  <VideoComment
-                    key={comment.id}
-                    user={{
-                      id: comment.userId,
-                      name: comment.userName,
-                      imageUrl: comment.userImageUrl
-                    }}
-                    timestamp={comment.timestamp}
-                    content={comment.content}
-                    time={new Date(comment.createdAt.toDate()).toLocaleString()}
-                    isResolved={comment.isResolved}
-                    onResolve={() => handleCommentResolve(comment.id)}
-                  />
-                ))}
+                {[...comments, ...annotations].sort((a, b) => 
+                  b.createdAt.toMillis() - a.createdAt.toMillis()
+                ).map(item => {
+                  if ('data' in item) {
+                    // Render annotation
+                    return (
+                      <div key={item.id} className="mb-4 p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={item.userImageUrl} alt={item.userName} />
+                            <AvatarFallback>{item.userName[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{item.userName}</span>
+                          <Badge variant="secondary" className="ml-auto">
+                            {item.timeFormatted}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteAnnotation(item.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                        <div className="aspect-video overflow-hidden rounded-md">
+                          <img
+                            src={item.data}
+                            alt={`Annotation at ${item.timeFormatted}`}
+                            className="w-full h-full object-contain"
+                            onClick={() => setSelectedAnnotation(item)}
+                          />
+                        </div>
+                      </div>
+                    )
+                  } else {
+                    // Render comment
+                    return (
+                      <VideoComment
+                        key={item.id}
+                        user={{
+                          id: item.userId,
+                          name: item.userName,
+                          imageUrl: item.userImageUrl
+                        }}
+                        timestamp={item.timestamp || undefined}
+                        content={item.content}
+                        time={new Date(item.createdAt.toDate()).toLocaleString()}
+                        isResolved={item.isResolved}
+                        onResolve={() => handleCommentResolve(item.id)}
+                      />
+                    )
+                  }
+                })}
               </div>
 
               {/* Comment Input */}
@@ -315,9 +442,9 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   <div className="flex-1">
                     <div className="mb-3 flex items-center gap-2">
                       <Badge variant="secondary" className="bg-gray-100">
-                        {Math.floor(currentTime / 60)}:{String(Math.floor(currentTime % 60)).padStart(2, '0')}
+                        {formatTime(currentTime)}
                       </Badge>
-                      <span className="text-xs text-gray-500">Current timestamp</span>
+                      <span className="text-xs text-gray-500">Type @time to add timestamp</span>
                     </div>
                     <textarea
                       placeholder="Add a comment..."
