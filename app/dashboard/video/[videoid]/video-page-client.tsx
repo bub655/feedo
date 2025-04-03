@@ -2,8 +2,20 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useUser } from "@clerk/nextjs"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, updateDoc, collection, addDoc } from "firebase/firestore"
+import { 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  getDocs,
+  query,
+  orderBy,
+  Timestamp 
+} from "firebase/firestore"
 import {
   ChevronLeft,
   Share2,
@@ -42,10 +54,24 @@ interface Video {
   progress: number
 }
 
+interface Comment {
+  id: string
+  content: string
+  timestamp: string
+  createdAt: Timestamp
+  userId: string
+  userName: string
+  userImageUrl: string
+  isResolved: boolean
+}
+
 export default function VideoPageClient({ videoId }: VideoPageClientProps) {
+  const { user } = useUser()
   const [video, setVideo] = useState<Video | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
+  const [commentInput, setCommentInput] = useState("")
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -70,15 +96,75 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     fetchVideo()
   }, [videoId])
 
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const commentsRef = collection(db, "projects", videoId, "comments")
+        const commentsQuery = query(commentsRef, orderBy("createdAt", "desc"))
+        const querySnapshot = await getDocs(commentsQuery)
+        const commentsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Comment[]
+        setComments(commentsData)
+      } catch (error) {
+        console.error("Error fetching comments:", error)
+      }
+    }
+
+    if (videoId) {
+      fetchComments()
+    }
+  }, [videoId])
+
   const handleCommentResolve = async (commentId: string) => {
     try {
-      const commentRef = doc(db, "comments", commentId)
+      const commentRef = doc(db, "projects", videoId, "comments", commentId)
       await updateDoc(commentRef, {
-        resolved: true,
-        resolvedAt: new Date().toISOString()
+        isResolved: true,
+        resolvedAt: serverTimestamp()
       })
+      
+      setComments(prevComments =>
+        prevComments.map(comment =>
+          comment.id === commentId
+            ? { ...comment, isResolved: true }
+            : comment
+        )
+      )
     } catch (error) {
       console.error("Error resolving comment:", error)
+    }
+  }
+
+  const handleAddComment = async () => {
+    if (!user || !commentInput.trim()) return
+
+    try {
+      const commentsRef = collection(db, "projects", videoId, "comments")
+      const newCommentData = {
+        content: commentInput.trim(),
+        timestamp: `${Math.floor(currentTime / 60)}:${String(Math.floor(currentTime % 60)).padStart(2, '0')}`,
+        createdAt: serverTimestamp(),
+        userId: user.id,
+        userName: user.fullName || user.username || 'Anonymous',
+        userImageUrl: user.imageUrl,
+        isResolved: false
+      }
+
+      const docRef = await addDoc(commentsRef, newCommentData)
+      
+      // Add to local state with the temporary timestamp
+      const tempComment: Comment = {
+        id: docRef.id,
+        ...newCommentData,
+        createdAt: Timestamp.now() // Use current timestamp for immediate display
+      }
+      
+      setComments(prevComments => [tempComment, ...prevComments])
+      setCommentInput("")
+    } catch (error) {
+      console.error("Error adding comment:", error)
     }
   }
 
@@ -207,47 +293,29 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             <div className="flex flex-col">
               {/* Comments List */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
-                <VideoComment
-                  user={{
-                    name: "James Miller",
-                    avatar: "/placeholder.svg"
-                  }}
-                  timestamp="0:05"
-                  content="The intro animation looks great, but can we make the logo a bit larger?"
-                  time="Apr 2, 10:13 AM"
-                  isResolved={true}
-                  onResolve={() => handleCommentResolve("comment1")}
-                />
-
-                <VideoComment
-                  user={{
-                    name: "Sophia Chen",
-                    avatar: "/placeholder.svg"
-                  }}
-                  timestamp="0:15"
-                  content="I think this section moves too quickly. Can we slow it down to give viewers more time to read the text?"
-                  time="Apr 2, 08:13 AM"
-                  onResolve={() => handleCommentResolve("comment2")}
-                />
-
-                <VideoComment
-                  user={{
-                    name: "Alex Johnson",
-                    avatar: "/placeholder.svg"
-                  }}
-                  timestamp="0:30"
-                  content="The color grading in this scene feels inconsistent with the rest of the video. Could we adjust to match the earlier style?"
-                  time="Apr 2, 06:13 AM"
-                  onResolve={() => handleCommentResolve("comment3")}
-                />
+                {comments.map(comment => (
+                  <VideoComment
+                    key={comment.id}
+                    user={{
+                      id: comment.userId,
+                      name: comment.userName,
+                      imageUrl: comment.userImageUrl
+                    }}
+                    timestamp={comment.timestamp}
+                    content={comment.content}
+                    time={new Date(comment.createdAt.toDate()).toLocaleString()}
+                    isResolved={comment.isResolved}
+                    onResolve={() => handleCommentResolve(comment.id)}
+                  />
+                ))}
               </div>
 
               {/* Comment Input */}
               <div className="border-t border-gray-200 bg-white p-6">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder.svg" alt="@user" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarImage src={user?.imageUrl} alt={user?.fullName || ''} />
+                    <AvatarFallback>{user?.fullName?.[0] || user?.username?.[0] || 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="mb-3 flex items-center gap-2">
@@ -258,11 +326,18 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     </div>
                     <textarea
                       placeholder="Add a comment..."
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
                       className="w-full resize-none rounded-lg border border-gray-200 p-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                       rows={3}
                     />
                     <div className="mt-3 flex justify-end">
-                      <Button size="sm" className="bg-sky-500 hover:bg-sky-600">
+                      <Button
+                        size="sm"
+                        className="bg-sky-500 hover:bg-sky-600"
+                        onClick={handleAddComment}
+                        disabled={!commentInput.trim()}
+                      >
                         Add Comment
                       </Button>
                     </div>

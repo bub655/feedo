@@ -5,11 +5,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CheckCircle } from "lucide-react"
 
+interface User {
+  id: string
+  name: string
+  imageUrl: string
+}
+
 interface VideoCommentProps {
-  user: {
-    name: string
-    avatar: string
-  }
+  user: User
   timestamp: string
   content: string
   time: string
@@ -29,8 +32,8 @@ export default function VideoComment({
     <div className="group relative mb-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start gap-3">
         <Avatar className="h-8 w-8">
-          <AvatarImage src={user.avatar} alt={user.name} />
-          <AvatarFallback>{user.name[0]}</AvatarFallback>
+          <AvatarImage src={user.imageUrl} alt={user.name} />
+          <AvatarFallback>{user.name?.[0]?.toUpperCase()}</AvatarFallback>
         </Avatar>
         
         <div className="flex-1">
