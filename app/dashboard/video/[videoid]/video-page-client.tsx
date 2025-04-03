@@ -8,12 +8,9 @@ import {
   doc, 
   getDoc, 
   updateDoc, 
-  collection, 
-  addDoc, 
-  serverTimestamp, 
-  getDocs,
-  query,
-  orderBy,
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp,
   Timestamp 
 } from "firebase/firestore"
 import {
@@ -52,6 +49,7 @@ interface Video {
     type: string
   }
   progress: number
+  comments?: Comment[]
 }
 
 interface Comment {
@@ -80,11 +78,15 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         const docSnap = await getDoc(docRef)
         
         if (docSnap.exists()) {
-          const videoData = {
+          const videoData = docSnap.data()
+          setVideo({
             id: docSnap.id,
-            ...docSnap.data()
-          } as Video
-          setVideo(videoData)
+            ...videoData,
+          } as Video)
+          // Set comments from the video document
+          setComments(videoData.comments?.sort((a: Comment, b: Comment) => 
+            b.createdAt.toMillis() - a.createdAt.toMillis()
+          ) || [])
         }
       } catch (error) {
         console.error("Error fetching video:", error)
@@ -96,72 +98,65 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     fetchVideo()
   }, [videoId])
 
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const commentsRef = collection(db, "projects", videoId, "comments")
-        const commentsQuery = query(commentsRef, orderBy("createdAt", "desc"))
-        const querySnapshot = await getDocs(commentsQuery)
-        const commentsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Comment[]
-        setComments(commentsData)
-      } catch (error) {
-        console.error("Error fetching comments:", error)
-      }
-    }
-
-    if (videoId) {
-      fetchComments()
-    }
-  }, [videoId])
-
   const handleCommentResolve = async (commentId: string) => {
+    if (!video) return
+
     try {
-      const commentRef = doc(db, "projects", videoId, "comments", commentId)
-      await updateDoc(commentRef, {
-        isResolved: true,
-        resolvedAt: serverTimestamp()
-      })
+      const docRef = doc(db, "projects", videoId)
+      const updatedComment = comments.find(c => c.id === commentId)
       
-      setComments(prevComments =>
-        prevComments.map(comment =>
-          comment.id === commentId
-            ? { ...comment, isResolved: true }
-            : comment
+      if (updatedComment) {
+        const resolvedComment = {
+          ...updatedComment,
+          isResolved: true,
+          resolvedAt: serverTimestamp()
+        }
+
+        // Remove the old comment and add the updated one
+        await updateDoc(docRef, {
+          comments: arrayRemove(updatedComment)
+        })
+        await updateDoc(docRef, {
+          comments: arrayUnion(resolvedComment)
+        })
+
+        // Update local state
+        setComments(prevComments =>
+          prevComments.map(comment =>
+            comment.id === commentId
+              ? { ...comment, isResolved: true }
+              : comment
+          )
         )
-      )
+      }
     } catch (error) {
       console.error("Error resolving comment:", error)
     }
   }
 
   const handleAddComment = async () => {
-    if (!user || !commentInput.trim()) return
+    if (!user || !commentInput.trim() || !video) return
 
     try {
-      const commentsRef = collection(db, "projects", videoId, "comments")
-      const newCommentData = {
+      const docRef = doc(db, "projects", videoId)
+      const newComment: Comment = {
+        id: crypto.randomUUID(), // Generate a unique ID
         content: commentInput.trim(),
         timestamp: `${Math.floor(currentTime / 60)}:${String(Math.floor(currentTime % 60)).padStart(2, '0')}`,
-        createdAt: serverTimestamp(),
+        createdAt: Timestamp.now(),
         userId: user.id,
         userName: user.fullName || user.username || 'Anonymous',
         userImageUrl: user.imageUrl,
         isResolved: false
       }
 
-      const docRef = await addDoc(commentsRef, newCommentData)
+      // Add the new comment to the project document
+      await updateDoc(docRef, {
+        comments: arrayUnion(newComment)
+      })
       
-      // Add to local state with the temporary timestamp
-      const tempComment: Comment = {
-        id: docRef.id,
-        ...newCommentData,
-        createdAt: Timestamp.now() // Use current timestamp for immediate display
-      }
-      
-      setComments(prevComments => [tempComment, ...prevComments])
+      // Update local state
+      setComments(prevComments => [newComment, ...prevComments])
       setCommentInput("")
     } catch (error) {
       console.error("Error adding comment:", error)
