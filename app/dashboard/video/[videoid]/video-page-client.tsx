@@ -281,6 +281,19 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     setSelectedAnnotation(null)
   }
 
+  const handleTimeUpdate = (time: number) => {
+    setCurrentTime(time)
+    // Clear annotation if current time doesn't match any annotation's timestamp
+    if (selectedAnnotation) {
+      const [minutes, seconds] = selectedAnnotation.timestamp.split(':').map(Number)
+      const annotationTimeInSeconds = minutes * 60 + seconds
+      // If current time is more than 1 second away from annotation time, clear it
+      if (Math.abs(time - annotationTimeInSeconds) > 1) {
+        setSelectedAnnotation(null)
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -341,7 +354,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                 <VideoPlayer 
                   videoUrl={video.videoPath} 
                   thumbnailUrl={video.thumbnail}
-                  onTimeUpdate={setCurrentTime}
+                  onTimeUpdate={handleTimeUpdate}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                   seekTo={seekTo}
