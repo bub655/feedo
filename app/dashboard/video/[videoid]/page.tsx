@@ -1,15 +1,17 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import VideoPageClient from "@/app/dashboard/video/[videoid]/video-page-client";
+"use client"
 
-export default async function VideoPage(props: { params: Promise<{ videoid: string }> }) {
-  const { userId } = await auth();
+import { use } from "react"
+import VideoPageClient from "./video-page-client"
 
-  if (!userId) {
-    redirect("/signin");
-  }
+interface PageParams {
+  videoid: string
+}
 
-  const { videoid } = await props.params;
+interface VideoPageProps {
+  params: Promise<PageParams>
+}
 
-  return <VideoPageClient videoId={videoid} />;
+export default function VideoPage({ params }: VideoPageProps) {
+  const resolvedParams = use(params)
+  return <VideoPageClient videoId={resolvedParams.videoid} />
 }
