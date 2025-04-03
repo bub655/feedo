@@ -11,9 +11,10 @@ interface VideoPlayerProps {
   onTimeUpdate?: (time: number) => void
   onPlay?: () => void
   onPause?: () => void
+  seekTo?: number
 }
 
-export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPlay, onPause }: VideoPlayerProps) {
+export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPlay, onPause, seekTo }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -23,6 +24,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showControls, setShowControls] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const video = videoRef.current
@@ -60,6 +62,12 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
       video.removeEventListener("error", handleError)
     }
   }, [videoUrl, onTimeUpdate])
+
+  useEffect(() => {
+    if (videoRef.current && seekTo !== undefined) {
+      videoRef.current.currentTime = seekTo
+    }
+  }, [seekTo])
 
   const togglePlay = async () => {
     const video = videoRef.current

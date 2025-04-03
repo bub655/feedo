@@ -87,6 +87,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [seekTo, setSeekTo] = useState<number | undefined>(undefined)
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -172,12 +173,10 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         isResolved: false
       }
 
-      // Add the new comment to the project document
       await updateDoc(docRef, {
         comments: arrayUnion(newComment)
       })
       
-      // Update local state
       setComments(prevComments => [newComment, ...prevComments])
       setCommentInput("")
     } catch (error) {
@@ -190,23 +189,23 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
 
     try {
       const docRef = doc(db, "projects", videoId)
+      const timestamp = formatTime(currentTime)
+      
       const newAnnotation: Annotation = {
         id: crypto.randomUUID(),
         data: annotationData,
-        timestamp: formatTime(currentTime),
-        timeFormatted: formatTime(currentTime),
+        timestamp,
+        timeFormatted: timestamp,
         createdAt: Timestamp.now(),
         userId: user.id,
         userName: user.fullName || user.username || 'Anonymous',
         userImageUrl: user.imageUrl
       }
 
-      // Add the new annotation to the project document
       await updateDoc(docRef, {
         annotations: arrayUnion(newAnnotation)
       })
 
-      // Update local state
       setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation])
       setIsDrawing(false)
     } catch (error) {
@@ -240,6 +239,29 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
+  }
+
+  const handleAnnotationClick = (annotation: Annotation) => {
+    setSelectedAnnotation(annotation)
+    // Convert timestamp string to seconds
+    const [minutes, seconds] = annotation.timestamp.split(':').map(Number)
+    const timeInSeconds = minutes * 60 + seconds
+    setSeekTo(timeInSeconds)
+    setIsPlaying(false)
+  }
+
+  const handleCommentClick = (comment: Comment) => {
+    if (comment.timestamp) {
+      // Convert timestamp string to seconds
+      const [minutes, seconds] = comment.timestamp.split(':').map(Number)
+      const timeInSeconds = minutes * 60 + seconds
+      setSeekTo(timeInSeconds)
+      setIsPlaying(false)
+    }
+  }
+
+  const handleClearSelection = () => {
+    setSelectedAnnotation(null)
   }
 
   if (loading) {
@@ -305,6 +327,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   onTimeUpdate={setCurrentTime}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
+                  seekTo={seekTo}
                 />
                 <AnnotationCanvas
                   isDrawing={isDrawing}
@@ -312,6 +335,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   onSave={handleSaveAnnotation}
                   selectedAnnotation={selectedAnnotation}
                   isPlaying={isPlaying}
+                  onClearSelection={handleClearSelection}
                 />
               </div>
             </div>
@@ -386,7 +410,15 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   if ('data' in item) {
                     // Render annotation
                     return (
-                      <div key={item.id} className="mb-4 p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                      <div
+                        key={item.id}
+                        className={`rounded-lg border p-4 ${
+                          item.id === selectedAnnotation?.id
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-200"
+                        }`}
+                        onClick={() => handleAnnotationClick(item)}
+                      >
                         <div className="flex items-center gap-2 mb-2">
                           <Avatar className="h-6 w-6">
                             <AvatarImage src={item.userImageUrl} alt={item.userName} />
@@ -399,7 +431,10 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteAnnotation(item.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteAnnotation(item.id)
+                            }}
                             className="text-red-500 hover:text-red-700"
                           >
                             Delete
@@ -410,7 +445,6 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                             src={item.data}
                             alt={`Annotation at ${item.timeFormatted}`}
                             className="w-full h-full object-contain"
-                            onClick={() => setSelectedAnnotation(item)}
                           />
                         </div>
                       </div>
@@ -425,11 +459,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                           name: item.userName,
                           imageUrl: item.userImageUrl
                         }}
-                        timestamp={item.timestamp || undefined}
                         content={item.content}
                         time={new Date(item.createdAt.toDate()).toLocaleString()}
+                        timestamp={item.timestamp || undefined}
                         isResolved={item.isResolved}
                         onResolve={() => handleCommentResolve(item.id)}
+                        onClick={() => handleCommentClick(item)}
                       />
                     )
                   }

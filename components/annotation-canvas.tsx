@@ -18,6 +18,7 @@ interface AnnotationCanvasProps {
   onSave: (annotationData: string) => void
   selectedAnnotation: Annotation | null
   isPlaying: boolean
+  onClearSelection: () => void
 }
 
 export default function AnnotationCanvas({
@@ -26,6 +27,7 @@ export default function AnnotationCanvas({
   onSave,
   selectedAnnotation,
   isPlaying,
+  onClearSelection
 }: AnnotationCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -70,6 +72,13 @@ export default function AnnotationCanvas({
       window.removeEventListener("resize", resizeCanvas)
     }
   }, [selectedAnnotation, isPlaying])
+
+  // Clear selected annotation when video starts playing
+  useEffect(() => {
+    if (isPlaying && selectedAnnotation) {
+      onClearSelection()
+    }
+  }, [isPlaying, selectedAnnotation, onClearSelection])
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
