@@ -242,21 +242,38 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   }
 
   const handleAnnotationClick = (annotation: Annotation) => {
-    setSelectedAnnotation(annotation)
+    // Clear current selection if clicking on a different annotation
+    if (selectedAnnotation?.id !== annotation.id) {
+      setSelectedAnnotation(annotation)
+    } else {
+      setSelectedAnnotation(null)
+    }
     // Convert timestamp string to seconds
     const [minutes, seconds] = annotation.timestamp.split(':').map(Number)
     const timeInSeconds = minutes * 60 + seconds
     setSeekTo(timeInSeconds)
     setIsPlaying(false)
+    // Pause the video
+    const video = document.querySelector('video')
+    if (video) {
+      video.pause()
+    }
   }
 
   const handleCommentClick = (comment: Comment) => {
+    // Clear any selected annotation when clicking on a comment
+    setSelectedAnnotation(null)
     if (comment.timestamp) {
       // Convert timestamp string to seconds
       const [minutes, seconds] = comment.timestamp.split(':').map(Number)
       const timeInSeconds = minutes * 60 + seconds
       setSeekTo(timeInSeconds)
       setIsPlaying(false)
+      // Pause the video
+      const video = document.querySelector('video')
+      if (video) {
+        video.pause()
+      }
     }
   }
 
