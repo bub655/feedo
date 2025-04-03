@@ -17,6 +17,7 @@ interface AnnotationCanvasProps {
   setIsDrawing: (isDrawing: boolean) => void
   onSave: (annotationData: string) => void
   selectedAnnotation: Annotation | null
+  isPlaying: boolean
 }
 
 export default function AnnotationCanvas({
@@ -24,6 +25,7 @@ export default function AnnotationCanvas({
   setIsDrawing,
   onSave,
   selectedAnnotation,
+  isPlaying,
 }: AnnotationCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -54,7 +56,7 @@ export default function AnnotationCanvas({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Load selected annotation if any
+    // Only load annotation if there's a selected one
     if (selectedAnnotation) {
       const img = new Image()
       img.crossOrigin = "anonymous"
@@ -67,7 +69,7 @@ export default function AnnotationCanvas({
     return () => {
       window.removeEventListener("resize", resizeCanvas)
     }
-  }, [selectedAnnotation])
+  }, [selectedAnnotation, isPlaying])
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return
@@ -138,7 +140,10 @@ export default function AnnotationCanvas({
   }
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-20 pointer-events-none">
+    <div 
+      ref={containerRef} 
+      className={`absolute inset-0 z-20 pointer-events-none ${isPlaying && !selectedAnnotation ? 'opacity-0' : 'opacity-100'}`}
+    >
       <canvas
         ref={canvasRef}
         className={`w-full h-full ${isDrawing ? "cursor-crosshair pointer-events-auto" : "pointer-events-none"}`}

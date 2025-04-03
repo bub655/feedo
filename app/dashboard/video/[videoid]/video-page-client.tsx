@@ -86,6 +86,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [commentInput, setCommentInput] = useState("")
   const [isDrawing, setIsDrawing] = useState(false)
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -302,12 +303,15 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   videoUrl={video.videoPath} 
                   thumbnailUrl={video.thumbnail}
                   onTimeUpdate={setCurrentTime}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
                 />
                 <AnnotationCanvas
                   isDrawing={isDrawing}
                   setIsDrawing={setIsDrawing}
                   onSave={handleSaveAnnotation}
                   selectedAnnotation={selectedAnnotation}
+                  isPlaying={isPlaying}
                 />
               </div>
             </div>

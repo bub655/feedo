@@ -9,9 +9,11 @@ interface VideoPlayerProps {
   videoUrl: string
   thumbnailUrl?: string
   onTimeUpdate?: (time: number) => void
+  onPlay?: () => void
+  onPause?: () => void
 }
 
-export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate }: VideoPlayerProps) {
+export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPlay, onPause }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -67,9 +69,11 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate }: Vi
       if (isPlaying) {
         video.pause()
         setIsPlaying(false)
+        onPause?.()
       } else {
         await video.play()
         setIsPlaying(true)
+        onPlay?.()
       }
     } catch (error) {
       console.error("Playback error:", error)
