@@ -376,7 +376,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                 <div>
                   <h2 className="text-lg font-medium text-gray-900">Project Details</h2>
                   <p className="text-sm text-gray-500">Last updated: {new Date(video.metadata.lastModified).toLocaleDateString()}</p>
-                </div>
+                  </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <Download className="h-4 w-4" />

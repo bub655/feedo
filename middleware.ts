@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server'
 const isProtectedRoute = createRouteMatcher(['/dashboard(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
+  const { userId, redirectToSignIn } = await auth()
+  // if user is not authenticated and trying to access protected routes, redirect to signin
+  if (isProtectedRoute(req) && !userId) {
+
     // redirect to signin page
     const signInUrl = new URL("/signin", req.url)
     signInUrl.searchParams.set("redirect_url", req.url)
