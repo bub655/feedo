@@ -329,19 +329,19 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           <Link href="/dashboard" className="mb-2 inline-block text-sm text-gray-500 hover:text-gray-700">
             <ChevronLeft className="mr-1 -mt-0.5 inline-block h-4 w-4" />
             Back to projects
-          </Link>
+                </Link>
 
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{video.title}</h1>
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Users className="h-4 w-4" />
                 Invite
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </Button>
             </div>
           </div>
         </div>
@@ -382,11 +382,11 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     <Download className="h-4 w-4" />
                     Download
                   </Button>
-                </div>
-              </div>
+            </div>
+          </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
-                <div>
+              <div>
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-4 w-4 text-gray-400" />
                     <span className="text-gray-500">Client:</span>
@@ -412,7 +412,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                 </div>
               </div>
 
-              <div className="mt-4">
+                <div className="mt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Progress</span>
                   <span className="text-sm font-medium text-gray-900">{video.progress}%</span>
@@ -442,7 +442,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     return (
                       <div
                         key={item.id}
-                        className={`rounded-lg border p-4 ${
+                        className={`group relative mb-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md cursor-pointer ${
                           item.id === selectedAnnotation?.id
                             ? "border-primary bg-primary/5"
                             : "border-gray-200"
@@ -458,9 +458,9 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                           <Badge variant="secondary" className="ml-auto">
                             {item.timeFormatted}
                           </Badge>
-                          <Button
+                    <Button
                             variant="ghost"
-                            size="sm"
+                      size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleDeleteAnnotation(item.id)
@@ -468,7 +468,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                             className="text-red-500 hover:text-red-700"
                           >
                             Delete
-                          </Button>
+                    </Button>
                         </div>
                         <div className="aspect-video overflow-hidden rounded-md">
                           <img
@@ -499,7 +499,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     )
                   }
                 })}
-              </div>
+                  </div>
 
               {/* Comment Input */}
               <div className="border-t border-gray-200 bg-white p-6">

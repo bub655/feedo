@@ -44,48 +44,48 @@ export default function WorkspacePage() {
   const { user } = useUser()
 
   useEffect(() => {
-  const fetchWorkspaces = async () => {
-    if (!user) return;
-    try {
-      const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
-      const userDoc = await getDoc(userDocRef);
+    const fetchWorkspaces = async () => {
+      if (!user) return;
+      try {
+        const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
+        const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists()) {
-        const { workspaces: workspaceIds } = userDoc.data();
+        if (userDoc.exists()) {
+          const { workspaces: workspaceIds } = userDoc.data();
 
-        if (workspaceIds && workspaceIds.length > 0) {
-          // Fetch workspace details and filter out deleted workspaces
-          const fetchedWorkspaces = await Promise.all(
-            workspaceIds.map(async (workspaceId: string) => {
-              const workspaceDocRef = doc(db, "workspaces", workspaceId);
-              const workspaceDoc = await getDoc(workspaceDocRef);
-              return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
-            })
-          );
-          // Filter out null values (deleted workspaces) and update user's workspace list
-          const validWorkspaces = fetchedWorkspaces.filter(Boolean);
-          
-          // Update the user's workspace list if there were deleted workspaces
-          if (validWorkspaces.length !== workspaceIds.length) {
-            await setDoc(
-              userDocRef,
-              { 
-                workspaces: validWorkspaces.map(workspace => workspace.id)
-              },
-              { merge: true }
+          if (workspaceIds && workspaceIds.length > 0) {
+            // Fetch workspace details and filter out deleted workspaces
+            const fetchedWorkspaces = await Promise.all(
+              workspaceIds.map(async (workspaceId: string) => {
+                const workspaceDocRef = doc(db, "workspaces", workspaceId);
+                const workspaceDoc = await getDoc(workspaceDocRef);
+                return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
+              })
             );
+            // Filter out null values (deleted workspaces) and update user's workspace list
+            const validWorkspaces = fetchedWorkspaces.filter(Boolean);
+            
+            // Update the user's workspace list if there were deleted workspaces
+            if (validWorkspaces.length !== workspaceIds.length) {
+              await setDoc(
+                userDocRef,
+                { 
+                  workspaces: validWorkspaces.map(workspace => workspace.id)
+                },
+                { merge: true }
+              );
+            }
+
+            setWorkspaces(validWorkspaces);
           }
-
-          setWorkspaces(validWorkspaces);
         }
+      } catch (error) {
+        console.error("Error fetching workspaces:", error);
       }
-    } catch (error) {
-      console.error("Error fetching workspaces:", error);
-    }
-  };
+    };
 
-  fetchWorkspaces();
-}, [user]);
+    fetchWorkspaces();
+  }, [user]);
 
   const handleAddTeamMember = () => {
     if (newTeamMember && !teamMembers.some((member) => member.email === newTeamMember)) {
