@@ -11,7 +11,11 @@ import {
   arrayUnion,
   arrayRemove,
   serverTimestamp,
-  Timestamp 
+  Timestamp,
+  query,
+  collection,
+  getDocs,
+  where
 } from "firebase/firestore"
 import {
   ChevronLeft,
@@ -31,6 +35,7 @@ import VideoComment from "@/components/video-comment"
 import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import AnnotationCanvas from "@/components/annotation-canvas"
+import ShareWorkspaceDialog from "@/components/share-workspace-dialog"
 
 interface VideoPageClientProps {
   videoId: string
@@ -88,6 +93,8 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined)
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [workspaceId, setWorkspaceId] = useState<string>("")
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -106,6 +113,27 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             b.createdAt.toMillis() - a.createdAt.toMillis()
           ) || [])
           setAnnotations(videoData.annotations || [])
+
+          // Find the workspace ID by searching for a workspace with matching client name
+          if (videoData.client) {
+            try {
+              const workspacesQuery = query(
+                collection(db, "workspaces"), 
+                where("name", "==", videoData.client)
+              )
+              const workspacesSnapshot = await getDocs(workspacesQuery)
+              if (!workspacesSnapshot.empty) {
+                const workspaceDoc = workspacesSnapshot.docs[0]
+                setWorkspaceId(workspaceDoc.id)
+              } else {
+                console.warn("No workspace found for client:", videoData.client)
+              }
+            } catch (error) {
+              console.error("Error finding workspace:", error)
+            }
+          } else {
+            console.warn("Video has no client field")
+          }
         }
       } catch (error) {
         console.error("Error fetching video:", error)
@@ -334,11 +362,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{video.title}</h1>
               <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Users className="h-4 w-4" />
-                Invite
-              </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5"
+                  onClick={() => setIsShareDialogOpen(true)}
+                >
                   <Share2 className="h-4 w-4" />
                   Share
                 </Button>
@@ -539,6 +568,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           </div>
         </div>
       </div>
+      <ShareWorkspaceDialog
+        isOpen={isShareDialogOpen}
+        onClose={() => setIsShareDialogOpen(false)}
+        workspaceId={workspaceId}
+        currentUserEmail={user?.emailAddresses[0]?.emailAddress || ""}
+      />
     </div>
   )
 } 

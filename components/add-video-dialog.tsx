@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
 import { collection, addDoc } from "firebase/firestore"
-import { storageService } from "@/lib/storage"
+import { uploadToS3 } from "@/lib/aws"
 
 interface AddVideoDialogProps {
   workspaceName: string
@@ -57,24 +57,15 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     setIsUploading(true)
 
     try {
-      console.log("Starting upload process...")
-      console.log("File details:", {
-        name: selectedFile.name,
-        size: selectedFile.size,
-        type: selectedFile.type
-      })
-
-      // Upload file using storage service
-      console.log("Uploading file to server...")
-      const { url, filename } = await storageService.uploadFile(selectedFile)
-      console.log("File uploaded successfully:", { url, filename })
+      // Upload file to S3
+      const { key, url } = await uploadToS3(selectedFile)
 
       // Create video data object
       const videoData = {
         title,
         dueDate,
-        videoPath: url,
-        filename,
+        videoPath: key, // Store the S3 key instead of the full URL
+        filename: selectedFile.name,
         metadata: {
           size: selectedFile.size,
           type: selectedFile.type,
@@ -83,18 +74,14 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         comments: [],
       }
 
-      // Log to console
-      console.log("Saving video data to Firestore:", videoData)
-
       // Save to Firestore
       const docRef = await addDoc(collection(db, "projects"), videoData)
-      console.log("Document written with ID:", docRef.id)
 
       // Pass the video data to the parent component with the correct document ID
       onVideoAdded({
         ...videoData,
-        id: docRef.id, // Use the actual Firestore document ID
-        videoUrl: url,
+        id: docRef.id,
+        videoUrl: url, // Use the full CDN URL for the video player
         thumbnail: "/placeholder.svg?height=150&width=250",
       })
 
@@ -214,7 +201,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
                   className="mt-4"
                   onClick={(e) => {
                     e.stopPropagation()
-                    fileInputRef.current?.click() // Trigger file input click
+                    fileInputRef.current?.click()
                   }}
                 >
                   Browse Files

@@ -7,14 +7,21 @@ import { Slider } from "@/components/ui/slider"
 
 interface VideoPlayerProps {
   videoUrl: string
-  thumbnailUrl?: string
+  thumbnailUrl: string
   onTimeUpdate?: (time: number) => void
   onPlay?: () => void
   onPause?: () => void
   seekTo?: number
 }
 
-export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPlay, onPause, seekTo }: VideoPlayerProps) {
+export default function VideoPlayer({ 
+  videoUrl, 
+  thumbnailUrl, 
+  onTimeUpdate, 
+  onPlay, 
+  onPause,
+  seekTo 
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -37,75 +44,58 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration)
-      // Set the video to the first frame
-      video.currentTime = 0
+      setIsLoading(false)
     }
 
-    const handleEnded = () => {
+    const handlePlay = () => {
+      setIsPlaying(true)
+      onPlay?.()
+    }
+
+    const handlePause = () => {
       setIsPlaying(false)
+      onPause?.()
     }
 
-    const handleError = (e: Event) => {
-      console.error("Video error:", e)
-      setError("Error loading video. Please try again.")
-    }
-
-    video.addEventListener("timeupdate", handleTimeUpdate)
-    video.addEventListener("loadedmetadata", handleLoadedMetadata)
-    video.addEventListener("ended", handleEnded)
-    video.addEventListener("error", handleError)
+    video.addEventListener('timeupdate', handleTimeUpdate)
+    video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
 
     return () => {
-      video.removeEventListener("timeupdate", handleTimeUpdate)
-      video.removeEventListener("loadedmetadata", handleLoadedMetadata)
-      video.removeEventListener("ended", handleEnded)
-      video.removeEventListener("error", handleError)
+      video.removeEventListener('timeupdate', handleTimeUpdate)
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
     }
-  }, [videoUrl, onTimeUpdate])
+  }, [onTimeUpdate, onPlay, onPause])
 
   useEffect(() => {
-    if (videoRef.current && seekTo !== undefined) {
+    if (seekTo !== undefined && videoRef.current) {
       videoRef.current.currentTime = seekTo
     }
   }, [seekTo])
 
-  const togglePlay = async () => {
-    const video = videoRef.current
-    if (!video) return
-
-    try {
-      if (isPlaying) {
-        video.pause()
-        setIsPlaying(false)
-        onPause?.()
-      } else {
-        await video.play()
-        setIsPlaying(true)
-        onPlay?.()
-      }
-    } catch (error) {
-      console.error("Playback error:", error)
-      setIsPlaying(false)
-    }
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
   }
 
   const handleSeek = (value: number[]) => {
-    const video = videoRef.current
-    if (!video) return
-
-    const wasPlaying = !video.paused
-    if (wasPlaying) {
-      video.pause()
+    const time = value[0]
+    if (videoRef.current) {
+      videoRef.current.currentTime = time
     }
+  }
 
-    video.currentTime = value[0]
-    setCurrentTime(value[0])
-
-    if (wasPlaying) {
-      video.play().catch((error) => {
-        console.error("Error resuming playback:", error)
-        setIsPlaying(false)
-      })
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play()
+      }
     }
   }
 
@@ -155,12 +145,6 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
     setIsFullscreen(!isFullscreen)
   }
 
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-  }
-
   const skipBackward = () => {
     const video = videoRef.current
     if (!video) return
@@ -205,6 +189,11 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent"></div>
+        </div>
+      )}
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center text-white">
           <p>{error}</p>
@@ -218,7 +207,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
             onClick={togglePlay}
             preload="metadata"
           >
-            <source src={videoUrl} type="video/mp4" />
+            <source src={`${process.env.NEXT_PUBLIC_AWS_CDN_URL}${videoUrl}`} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
 
