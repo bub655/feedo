@@ -122,10 +122,13 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
         <video 
           ref={videoRef}
           className="hidden"
-          preload="metadata"
+          preload="auto"
           playsInline
           muted
           crossOrigin="anonymous"
+          onError={(e) => console.error('Video error:', e)}
+          onLoadedData={() => console.log('Video data loaded')}
+          onCanPlay={() => console.log('Video can play')}
         >
           <source src={project.videoUrl || ''} type="video/mp4" />
         </video>
@@ -137,6 +140,10 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
             width={250}
             height={150}
             className="h-36 w-full object-cover"
+            onError={(e) => {
+              console.error('Image error:', e)
+              setThumbnailSrc("/placeholder.svg")
+            }}
           />
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-sky-600">
