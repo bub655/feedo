@@ -32,26 +32,26 @@ interface ProjectCardProps {
 export default function ProjectCard({ project, workspaceId }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
   const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
+  const [isLoading, setIsLoading] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     if (!project.videoUrl) {
       console.log('No video URL provided')
+      setIsLoading(false)
       return
     }
 
     const video = videoRef.current
     if (!video) {
       console.log('Video ref not available')
+      setIsLoading(false)
       return
     }
 
     const captureFrame = () => {
       try {
         console.log('Attempting to capture frame...')
-        // Seek to 1 second into the video
-        video.currentTime = 1.0
-        
         // Create canvas with video dimensions
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth || 640
@@ -60,6 +60,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
         const ctx = canvas.getContext('2d')
         if (!ctx) {
           console.log('Could not get canvas context')
+          setIsLoading(false)
           return
         }
 
@@ -70,9 +71,16 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
         const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8)
         console.log('Successfully captured frame')
         setThumbnailSrc(thumbnailUrl)
+        setIsLoading(false)
       } catch (error) {
         console.error('Error capturing video frame:', error)
+        setIsLoading(false)
       }
+    }
+
+    const handleLoadedData = () => {
+      console.log('Video data loaded')
+      video.currentTime = 1.0
     }
 
     const handleTimeUpdate = () => {
@@ -83,17 +91,12 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
       }
     }
 
-    const handleLoadedMetadata = () => {
-      console.log('Video metadata loaded')
-      video.addEventListener('timeupdate', handleTimeUpdate)
-      video.currentTime = 1.0
-    }
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.addEventListener('loadeddata', handleLoadedData)
+    video.addEventListener('timeupdate', handleTimeUpdate)
     video.load()
 
     return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('loadeddata', handleLoadedData)
       video.removeEventListener('timeupdate', handleTimeUpdate)
     }
   }, [project.videoUrl])
@@ -122,29 +125,28 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
         <video 
           ref={videoRef}
           className="hidden"
-          preload="auto"
+          preload="metadata"
           playsInline
           muted
           crossOrigin="anonymous"
-          onError={(e) => console.error('Video error:', e)}
-          onLoadedData={() => console.log('Video data loaded')}
-          onCanPlay={() => console.log('Video can play')}
         >
-          <source src={project.videoUrl || ''} type="video/mp4" />
+          <source src={project.videoUrl ? `${project.videoUrl}` : ''} type="video/mp4" />
         </video>
 
         <Link href={`/dashboard/video/${project.id}`}>
-          <Image
-            src={thumbnailSrc}
-            alt={project.title}
-            width={250}
-            height={150}
-            className="h-36 w-full object-cover"
-            onError={(e) => {
-              console.error('Image error:', e)
-              setThumbnailSrc("/placeholder.svg")
-            }}
-          />
+          {isLoading ? (
+            <div className="h-36 w-full animate-pulse bg-gray-200 flex items-center justify-center">
+              <div className="text-gray-400">Loading thumbnail...</div>
+            </div>
+          ) : (
+            <Image
+              src={thumbnailSrc}
+              alt={project.title}
+              width={250}
+              height={150}
+              className="h-36 w-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-sky-600">
               <Play className="h-6 w-6" />
