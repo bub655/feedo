@@ -234,22 +234,46 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
       const docRef = doc(db, "projects", videoId)
       const timestamp = formatTime(currentTime)
       
-      const newAnnotation: Annotation = {
-        id: crypto.randomUUID(),
-        data: annotationData,
-        timestamp,
-        timeFormatted: timestamp,
-        createdAt: Timestamp.now(),
-        userId: user.id,
-        userName: user.fullName || user.username || 'Anonymous',
-        userImageUrl: user.imageUrl
+      if (selectedAnnotation) {
+        // Update existing annotation
+        const updatedAnnotation: Annotation = {
+          ...selectedAnnotation,
+          data: annotationData,
+          timestamp,
+          timeFormatted: timestamp,
+          createdAt: Timestamp.now()
+        }
+
+        // First remove the old annotation
+        await updateDoc(docRef, {
+          annotations: arrayRemove(selectedAnnotation)
+        })
+
+        // Then add the updated annotation
+        await updateDoc(docRef, {
+          annotations: arrayUnion(updatedAnnotation)
+        })
+
+        // Update the selected annotation in state
+        setSelectedAnnotation(updatedAnnotation)
+      } else {
+        // Create new annotation
+        const newAnnotation: Annotation = {
+          id: crypto.randomUUID(),
+          data: annotationData,
+          timestamp,
+          timeFormatted: timestamp,
+          createdAt: Timestamp.now(),
+          userId: user.id,
+          userName: user.fullName || user.username || 'Anonymous',
+          userImageUrl: user.imageUrl
+        }
+
+        await updateDoc(docRef, {
+          annotations: arrayUnion(newAnnotation)
+        })
       }
 
-      await updateDoc(docRef, {
-        annotations: arrayUnion(newAnnotation)
-      })
-
-      // Remove the local state update since the real-time listener will handle it
       setIsDrawing(false)
     } catch (error) {
       console.error("Error saving annotation:", error)
