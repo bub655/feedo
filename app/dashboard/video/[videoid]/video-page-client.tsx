@@ -15,7 +15,8 @@ import {
   query,
   collection,
   getDocs,
-  where
+  where,
+  onSnapshot
 } from "firebase/firestore"
 import {
   ChevronLeft,
@@ -108,11 +109,25 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             id: docSnap.id,
             ...videoData,
           } as Video)
-          // Set comments and annotations from the video document
+          // Set initial comments and annotations from the video document
           setComments(videoData.comments?.sort((a: Comment, b: Comment) => 
             b.createdAt.toMillis() - a.createdAt.toMillis()
           ) || [])
           setAnnotations(videoData.annotations || [])
+
+          // Set up real-time listener for comments
+          const unsubscribe = onSnapshot(docRef, (doc) => {
+            if (doc.exists()) {
+              const updatedData = doc.data()
+              setComments(updatedData.comments?.sort((a: Comment, b: Comment) => 
+                b.createdAt.toMillis() - a.createdAt.toMillis()
+              ) || [])
+              setAnnotations(updatedData.annotations || [])
+            }
+          })
+
+          // Cleanup function to unsubscribe from the listener
+          return () => unsubscribe()
 
           // Find the workspace ID by searching for a workspace with matching client name
           if (videoData.client) {
@@ -205,7 +220,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         comments: arrayUnion(newComment)
       })
       
-      setComments(prevComments => [newComment, ...prevComments])
+      // Remove the local state update since the real-time listener will handle it
       setCommentInput("")
     } catch (error) {
       console.error("Error adding comment:", error)
@@ -234,7 +249,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         annotations: arrayUnion(newAnnotation)
       })
 
-      setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation])
+      // Remove the local state update since the real-time listener will handle it
       setIsDrawing(false)
     } catch (error) {
       console.error("Error saving annotation:", error)
@@ -465,12 +480,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 {[...comments, ...annotations].sort((a, b) => 
                   b.createdAt.toMillis() - a.createdAt.toMillis()
-                ).map(item => {
+                ).map((item, index) => {
                   if ('data' in item) {
                     // Render annotation
                     return (
                       <div
-                        key={item.id}
+                        key={`annotation-${item.id}-${index}`}
                         className={`group relative mb-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md cursor-pointer ${
                           item.id === selectedAnnotation?.id
                             ? "border-primary bg-primary/5"
@@ -512,7 +527,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     // Render comment
                     return (
                       <VideoComment
-                        key={item.id}
+                        key={`comment-${item.id}-${index}`}
                         user={{
                           id: item.userId,
                           name: item.userName,
