@@ -89,7 +89,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
-  const [commentInput, setCommentInput] = useState("")
+  const [commentInput, setCommentInput] = useState("@time ")
   const [isDrawing, setIsDrawing] = useState(false)
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -585,11 +585,13 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     </div>
                     <textarea
                       placeholder="Add a comment..."
+
                       value={commentInput}
                       onChange={(e) => setCommentInput(e.target.value)}
                       className="w-full resize-none rounded-lg border border-gray-200 p-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                       rows={3}
-                    />
+                    >
+                    </textarea>
                     <div className="mt-3 flex justify-end">
                       <Button
                         size="sm"
