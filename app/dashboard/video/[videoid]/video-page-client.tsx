@@ -491,7 +491,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           </div>
 
           {/* Comments and Annotations Section */}
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="h-[calc(56.25vw*0.425+24rem)] lg:max-w-[33.333vw] rounded-lg border border-gray-200 bg-white shadow-sm flex flex-col">
             <div className="border-b border-gray-200 px-6 py-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-gray-400" />
@@ -499,7 +499,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
               </div>
             </div>
 
-            <div className="flex flex-col">
+            <div className="flex flex-col flex-1 overflow-hidden">
               {/* Timeline Items */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 {[...comments, ...annotations].sort((a, b) => 
@@ -567,9 +567,9 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     )
                   }
                 })}
-                  </div>
+              </div>
 
-              {/* Comment Input */}
+              {/* Comment Input - Fixed at bottom */}
               <div className="border-t border-gray-200 bg-white p-6">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-8 w-8">
@@ -585,13 +585,11 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                     </div>
                     <textarea
                       placeholder="Add a comment..."
-
                       value={commentInput}
                       onChange={(e) => setCommentInput(e.target.value)}
                       className="w-full resize-none rounded-lg border border-gray-200 p-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                       rows={3}
-                    >
-                    </textarea>
+                    />
                     <div className="mt-3 flex justify-end">
                       <Button
                         size="sm"
