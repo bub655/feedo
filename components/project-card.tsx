@@ -43,6 +43,8 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
     }
 
     const video = videoRef.current
+    console.log('project.videoUrl', project.videoUrl)
+
     if (!video) {
       console.log('Video ref not available')
       setIsLoading(false)
@@ -130,7 +132,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
           muted
           crossOrigin="anonymous"
         >
-          <source src={project.videoUrl ? `${project.videoUrl}` : ''} type="video/mp4" />
+          <source src={project.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${project.videoUrl}` : ''} type="video/mp4" />
         </video>
 
         <Link href={`/dashboard/video/${project.id}`}>

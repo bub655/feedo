@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       success: true, 
       key,
-      url: `${process.env.AWS_CDN_URL}${key}`
+      url: `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${key}`
     })
   } catch (error) {
     console.error('Error uploading to S3:', error)
