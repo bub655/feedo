@@ -65,21 +65,41 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       setUploading(true)
       setUploadProgress(0)
 
-      // Create form data for the file upload
-      const formData = new FormData()
-      formData.append('file', selectedFile)
-
-      // Upload to S3 through our API
-      const response = await fetch('/api/upload', {
+      // Get presigned URL
+      const presignResponse = await fetch('/api/upload/presign', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          contentType: selectedFile.type,
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error('Upload failed')
+      if (!presignResponse.ok) {
+        throw new Error('Failed to get upload URL')
       }
 
-      const { key, url } = await response.json()
+      const { url, fields, key, cdnUrl } = await presignResponse.json()
+
+      // Create form data with all required fields
+      const formData = new FormData()
+      Object.entries(fields).forEach(([key, value]) => {
+        formData.append(key, value as string)
+      })
+      formData.append('file', selectedFile)
+
+      // Upload directly to S3 using the presigned POST URL
+      const uploadResponse = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        console.error('Upload failed:', await uploadResponse.text())
+        throw new Error('Failed to upload to S3')
+      }
 
       // Create video document
       const videoData = {

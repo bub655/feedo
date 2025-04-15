@@ -47,6 +47,30 @@ export default function VideoPlayer({
       setIsLoading(false)
     }
 
+    const handleError = (e: Event) => {
+      const videoError = video.error
+      let errorMessage = 'Failed to load video'
+      if (videoError) {
+        switch (videoError.code) {
+          case 1:
+            errorMessage = 'Video loading aborted'
+            break
+          case 2:
+            errorMessage = 'Network error while loading video'
+            break
+          case 3:
+            errorMessage = 'Error decoding video'
+            break
+          case 4:
+            errorMessage = 'Video not supported'
+            break
+        }
+      }
+      console.error('Video error:', videoError)
+      setError(errorMessage)
+      setIsLoading(false)
+    }
+
     const handlePlay = () => {
       setIsPlaying(true)
       onPlay?.()
@@ -59,12 +83,14 @@ export default function VideoPlayer({
 
     video.addEventListener('timeupdate', handleTimeUpdate)
     video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.addEventListener('error', handleError)
     video.addEventListener('play', handlePlay)
     video.addEventListener('pause', handlePause)
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate)
       video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('error', handleError)
       video.removeEventListener('play', handlePlay)
       video.removeEventListener('pause', handlePause)
     }
@@ -207,7 +233,7 @@ export default function VideoPlayer({
             onClick={togglePlay}
             preload="metadata"
           >
-            <source src={`${process.env.NEXT_PUBLIC_AWS_CDN_URL}${videoUrl}`} type="video/mp4" />
+            <source src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
 

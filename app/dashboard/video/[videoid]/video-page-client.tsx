@@ -420,7 +420,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="aspect-video bg-black relative">
                 <VideoPlayer 
-                  videoUrl={video.videoUrl} 
+                  videoUrl={`${process.env.NEXT_PUBLIC_AWS_CDN_URL}${video.videoUrl}`} 
                   thumbnailUrl={video.thumbnail}
                   onTimeUpdate={handleTimeUpdate}
                   onPlay={() => setIsPlaying(true)}

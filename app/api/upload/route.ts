@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const fileExtension = file.name.split('.').pop()
-    const key = `dev/${file.name.split('.')[0]}-${uuidv4()}.${fileExtension}`
+    const key = `prod/${file.name.split('.')[0]}-${uuidv4()}.${fileExtension}`
 
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME!,
