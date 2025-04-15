@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-s3"
 import { v4 as uuidv4 } from 'uuid'
 
-const CHUNK_SIZE = 4 * 1024 * 1024; // 5MB chunk size (minimum for S3 multipart)
+const CHUNK_SIZE = 1 * 1024 * 1024; // 5MB chunk size (minimum for S3 multipart)
 
 // Validate environment variables
 if (!process.env.NEXT_PUBLIC_AWS_S3_REGION) throw new Error('Missing AWS Region')
