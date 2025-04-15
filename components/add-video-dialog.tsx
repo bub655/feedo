@@ -16,8 +16,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
-import { collection, addDoc } from "firebase/firestore"
-import { uploadToS3 } from "@/lib/aws"
+import { collection, addDoc, doc, setDoc, Timestamp } from "firebase/firestore"
+import { uploadToS3Multipart } from "@/lib/aws"
+import { toast } from "sonner"
+import { useUser } from "@clerk/nextjs"
+import { Progress } from "@/components/ui/progress"
+import { v4 as uuidv4 } from "uuid"
 
 interface AddVideoDialogProps {
   workspaceName: string
@@ -26,17 +30,21 @@ interface AddVideoDialogProps {
 }
 
 export default function AddVideoDialog({ workspaceName, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
+  const { user } = useUser()
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+      // Use the file name as the default title, without extension
+      // setTitle(file.name.split('.').slice(0, -1).join('.'))
     }
   }
 
@@ -52,50 +60,52 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   }
 
   const handleUpload = async () => {
-    if (!title || !dueDate || !selectedFile) return
-
-    setIsUploading(true)
+    if (!selectedFile || !user || !workspaceName) return
 
     try {
-      // Upload file to S3
-      const { key, url } = await uploadToS3(selectedFile)
+      setUploading(true)
+      setUploadProgress(0)
 
-      // Create video data object
-      const videoData = {
-        title,
-        dueDate,
-        videoPath: key, // Store the S3 key instead of the full URL
-        filename: selectedFile.name,
-        metadata: {
-          size: selectedFile.size,
-          type: selectedFile.type,
-          lastModified: selectedFile.lastModified,
-        },
-        comments: [],
-      }
-
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, "projects"), videoData)
-
-      // Pass the video data to the parent component with the correct document ID
-      onVideoAdded({
-        ...videoData,
-        id: docRef.id,
-        videoUrl: url, // Use the full CDN URL for the video player
-        thumbnail: "/placeholder.svg?height=150&width=250",
+      // Upload video to S3 with progress updates
+      const { key, url } = await uploadToS3Multipart(selectedFile, (progress) => {
+        setUploadProgress(progress)
       })
 
-      // Reset form
-      setTitle("")
-      setDueDate("")
-      setSelectedFile(null)
-      setIsUploading(false)
-      setUploadProgress(0)
+      const videoData = {
+        id: uuidv4(),
+        title: title || selectedFile.name,
+        dueDate: new Date().toISOString(),
+        videoUrl: key,
+        thumbnail: "/placeholder.svg?height=150&width=250",
+        client: workspaceName,
+        status: "processing",
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        comments: [],
+        annotations: []
+      }
+
+      // Create video document in Firestore
+      const videoRef = doc(db, "projects", videoData.id)
+      await setDoc(videoRef, videoData)
+
+      // Update workspace
+      if (onVideoAdded) {
+        onVideoAdded(videoData)
+      }
+
+      toast.success("Video uploaded successfully!")
       setIsOpen(false)
     } catch (error) {
       console.error("Error uploading video:", error)
-      setIsUploading(false)
+      toast.error("Failed to upload video. Please try again.")
+    } finally {
+      setUploading(false)
       setUploadProgress(0)
+      setSelectedFile(null)
+      setTitle("")
+      setDueDate("")
     }
   }
 
@@ -103,7 +113,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     setTitle("")
     setDueDate("")
     setSelectedFile(null)
-    setIsUploading(false)
+    setUploading(false)
     setUploadProgress(0)
   }
 
@@ -193,7 +203,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
                 className="hidden"
                 id="video-upload"
                 ref={fileInputRef}
-                onChange={handleFileChange}
+                onChange={handleFileSelect}
               />
               <label htmlFor="video-upload">
                 <Button
@@ -210,18 +220,13 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
             </div>
           </div>
 
-          {isUploading && (
+          {uploading && (
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex items-center justify-between text-sm">
                 <span>Uploading...</span>
-                <span>{uploadProgress}%</span>
+                <span>{Math.round(uploadProgress)}%</span>
               </div>
-              <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-sky-500 transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
+              <Progress value={uploadProgress} />
             </div>
           )}
         </div>
@@ -235,9 +240,9 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
           <Button
             className="bg-sky-500 hover:bg-sky-600"
             onClick={handleUpload}
-            disabled={!title || !dueDate || !selectedFile || isUploading}
+            disabled={!selectedFile || !title || uploading}
           >
-            {isUploading ? "Uploading..." : "Upload Video"}
+            {uploading ? "Uploading..." : "Upload Video"}
           </Button>
         </div>
       </DialogContent>

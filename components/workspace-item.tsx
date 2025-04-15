@@ -41,10 +41,10 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
     try {
       const newProject = {
         id: videoData.id,
-        title: videoData.title,
+        title: videoData.title || 'Untitled Video',
         thumbnail: videoData.thumbnail || "/placeholder.svg?height=150&width=250",
         status: "In Progress",
-        dueDate: videoData.dueDate,
+        dueDate: videoData.dueDate || new Date().toISOString(),
         client: workspace.name,
         type: "Video",
         videoUrl: videoData.videoUrl || null,

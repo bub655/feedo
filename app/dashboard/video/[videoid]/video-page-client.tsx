@@ -46,12 +46,12 @@ interface Video {
   id: string
   title: string
   status: string
-  videoPath: string
+  videoUrl: string
   thumbnail: string
   client: string
   dueDate: string
-  metadata: {
-    lastModified: string
+  updatedAt: string
+  metadata?: {
     size: number
     type: string
   }
@@ -420,7 +420,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="aspect-video bg-black relative">
                 <VideoPlayer 
-                  videoUrl={video.videoPath} 
+                  videoUrl={video.videoUrl} 
                   thumbnailUrl={video.thumbnail}
                   onTimeUpdate={handleTimeUpdate}
                   onPlay={() => setIsPlaying(true)}
@@ -443,7 +443,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-medium text-gray-900">Project Details</h2>
-                  <p className="text-sm text-gray-500">Last updated: {new Date(video.metadata.lastModified).toLocaleDateString()}</p>
+                  <p className="text-sm text-gray-500">Last updated: {new Date(video.updatedAt).toLocaleDateString()}</p>
                   </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1.5">
@@ -469,12 +469,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                 <div>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Format:</span>
-                    <span className="font-medium text-gray-900">{video.metadata.type}</span>
+                    <span className="font-medium text-gray-900">
+                      {video.metadata?.type || 'MP4'}
+                    </span>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Size:</span>
                     <span className="font-medium text-gray-900">
-                      {(video.metadata.size / (1024 * 1024)).toFixed(2)} MB
+                      {video.metadata?.size ? `${(video.metadata.size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}
                     </span>
                   </div>
                 </div>
