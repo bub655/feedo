@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
 import { collection, addDoc, doc, setDoc, Timestamp } from "firebase/firestore"
-import { uploadToS3Multipart } from "@/lib/aws"
 import { toast } from "sonner"
 import { useUser } from "@clerk/nextjs"
 import { Progress } from "@/components/ui/progress"
@@ -66,11 +65,23 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       setUploading(true)
       setUploadProgress(0)
 
-      // Upload video to S3 with progress updates
-      const { key, url } = await uploadToS3Multipart(selectedFile, (progress) => {
-        setUploadProgress(progress)
+      // Create form data for the file upload
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+
+      // Upload to S3 through our API
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
       })
 
+      if (!response.ok) {
+        throw new Error('Upload failed')
+      }
+
+      const { key, url } = await response.json()
+
+      // Create video document
       const videoData = {
         id: uuidv4(),
         title: title || selectedFile.name,

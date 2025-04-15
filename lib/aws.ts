@@ -11,16 +11,16 @@ const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunk size (minimum for S3 multipart)
 
 // Validate environment variables
 if (!process.env.NEXT_PUBLIC_AWS_S3_REGION) throw new Error('Missing AWS Region')
-if (!process.env.AWS_S3_ACCESS_KEY_ID) throw new Error('Missing AWS Access Key ID')
-if (!process.env.AWS_S3_SECRET_ACCESS_KEY) throw new Error('Missing AWS Secret Access Key')
+if (!process.env.NEXT_PUBLIC_AWS_S3_ACCESS_KEY_ID) throw new Error('Missing AWS Access Key ID')
+if (!process.env.NEXT_PUBLIC_AWS_S3_SECRET_ACCESS_KEY) throw new Error('Missing AWS Secret Access Key')
 if (!process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME) throw new Error('Missing AWS Bucket Name')
 if (!process.env.NEXT_PUBLIC_AWS_CDN_URL) throw new Error('Missing AWS CDN URL')
 
 const s3Client = new S3Client({
   region: process.env.NEXT_PUBLIC_AWS_S3_REGION,
   credentials: {
-    accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.NEXT_PUBLIC_AWS_S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.NEXT_PUBLIC_AWS_S3_SECRET_ACCESS_KEY,
   },
   forcePathStyle: true // Needed for some S3 compatible storage
 })
