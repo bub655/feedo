@@ -252,7 +252,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         comments: arrayUnion(newComment)
       })
       
-      setCommentInput("")
+      setCommentInput("@time ")
     } catch (error) {
       console.error("Error adding comment:", error)
     }
