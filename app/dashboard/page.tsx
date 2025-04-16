@@ -23,6 +23,42 @@ import DashboardNavbar from "@/components/dashboard-navbar"
 import WorkspaceItem from "@/components/workspace-item"
 import { Progress } from "@/components/ui/progress"
 
+interface ProjectVersion {
+  id: string
+  title: string
+  videoUrl: string
+  thumbnail: string
+  status: string
+  progress: number
+  createdAt: string
+  updatedAt: string
+  comments: any[]
+  annotations: any[]
+  version: number
+  videoSize?: number
+  videoDuration?: number
+}
+
+interface Project {
+  id: string
+  name: string
+  description?: string
+  versions: ProjectVersion[]
+  currentVersion: number
+  createdAt: string
+  updatedAt: string
+}
+
+interface Workspace {
+  id: string
+  name: string
+  members: string[]
+  projects: Project[]
+  description?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 export default function WorkspacePage() {
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
   const [newWorkspaceName, setNewWorkspaceName] = useState("")
@@ -105,62 +141,55 @@ export default function WorkspacePage() {
 
   const handleCreateWorkspace = async () => {
     if (!newWorkspaceName.trim() || !user) return;
-    teamMembers.push({ email: user.primaryEmailAddress?.emailAddress || user.id, permission: "owner" });
+    
     try {
+      const userEmail = user.primaryEmailAddress?.emailAddress || user.id;
       const newWorkspace = {
         createdAt: new Date().toISOString(),
         name: newWorkspaceName,
         description: newWorkspaceDescription,
-        collaborators: teamMembers,
-        projects: [],
+        members: [userEmail, ...teamMembers.map(member => member.email)],
+        projects: [], // Initialize empty projects array
       }
-  
+
       // Add workspace to Firestore
       const docRef = await addDoc(collection(db, "workspaces"), newWorkspace);
-  
-      for (const collaborator of teamMembers) {
-        // Get user's email
-        console.log(collaborator);
-        const userEmail = collaborator["email"];
-        console.log(userEmail);
-    
-        // Try to get existing user document
-        const userDocRef = doc(db, "UID", userEmail);
+
+      // Update each member's workspaces array
+      for (const memberEmail of newWorkspace.members) {
+        const userDocRef = doc(db, "UID", memberEmail);
         const userDoc = await getDoc(userDocRef);
-    
+
         if (userDoc.exists()) {
-          // User exists, update their workspaces array
           const existingWorkspaces = userDoc.data()?.workspaces || [];
           await setDoc(
             userDocRef,
             { 
               workspaces: [docRef.id, ...existingWorkspaces],
-              email: userEmail
+              email: memberEmail
             }
           );
         } else {
-          // User doesn't exist, create new document
           await setDoc(userDocRef, {
-            email: userEmail,
+            email: memberEmail,
             workspaces: [docRef.id]
           });
         }
       }
-  
+
       // Update local state
       setWorkspaces([{ 
         ...newWorkspace, 
         id: docRef.id,
-        members: teamMembers.length, 
-        videos: 0 
+        members: newWorkspace.members.length
       }, ...workspaces]);
-  
+
       // Reset form
       setNewWorkspaceName("");
       setNewWorkspaceDescription("");
       setTeamMembers([]);
       setIsCreateWorkspaceOpen(false);
-  
+
     } catch (error) {
       console.error("Error creating workspace:", error);
     }

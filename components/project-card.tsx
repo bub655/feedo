@@ -15,35 +15,52 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-interface ProjectCardProps {
-  project: {
-    id: string
-    title: string
-    thumbnail: string
-    status?: string
-    dueDate?: string
-    client?: string
-    type?: string
-    videoUrl?: string | null
-  },
-  workspaceId: string
+interface ProjectVersion {
+  id: string
+  title: string
+  videoUrl: string
+  thumbnail: string
+  status: string
+  progress: number
+  createdAt: string
+  updatedAt: string
+  version: number
+  videoSize?: number
+  videoDuration?: number
 }
 
-export default function ProjectCard({ project, workspaceId }: ProjectCardProps) {
-  const [status, setStatus] = useState(project.status)
+interface Project {
+  id: string
+  name: string
+  description?: string
+  versions: ProjectVersion[]
+  currentVersion: number
+  createdAt: string
+  updatedAt: string
+}
+
+interface ProjectCardProps {
+  project: Project
+  workspaceId: string
+  versionHistory: ProjectVersion[]
+}
+
+export default function ProjectCard({ project, workspaceId, versionHistory }: ProjectCardProps) {
+  const currentVersion = project.versions[project.currentVersion - 1]
+  const [status, setStatus] = useState(currentVersion?.status || "processing")
   const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
   const [isLoading, setIsLoading] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    if (!project.videoUrl) {
+    if (!currentVersion?.videoUrl) {
       console.log('No video URL provided')
       setIsLoading(false)
       return
     }
 
     const video = videoRef.current
-    console.log('project.videoUrl', project.videoUrl)
+    console.log('project.videoUrl', currentVersion.videoUrl)
 
     if (!video) {
       console.log('Video ref not available')
@@ -101,7 +118,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
       video.removeEventListener('loadeddata', handleLoadedData)
       video.removeEventListener('timeupdate', handleTimeUpdate)
     }
-  }, [project.videoUrl])
+  }, [currentVersion?.videoUrl])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -132,7 +149,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
           muted
           crossOrigin="anonymous"
         >
-          <source src={project.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${project.videoUrl}` : ''} type="video/mp4" />
+          <source src={currentVersion?.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${currentVersion.videoUrl}` : ''} type="video/mp4" />
         </video>
 
         <Link href={`/dashboard/video/${project.id}`}>
@@ -143,7 +160,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
           ) : (
             <Image
               src={thumbnailSrc}
-              alt={project.title}
+              alt={currentVersion?.title || project.name}
               width={250}
               height={150}
               className="h-36 w-full object-cover"
@@ -160,7 +177,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
       <div className="p-4">
         <div className="flex items-start justify-between">
           <Link href={`/dashboard/video/${project.id}`} className="hover:underline">
-            <h3 className="font-medium text-gray-900">{project.title}</h3>
+            <h3 className="font-medium text-gray-900">{currentVersion?.title || project.name}</h3>
           </Link>
 
           <DropdownMenu>
@@ -198,11 +215,11 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
         <div className="mt-3 space-y-1.5">
           <div className="flex items-center text-xs text-gray-500">
             <Calendar className="mr-1.5 h-3.5 w-3.5" />
-            Due: {project.dueDate}
+            Version: {currentVersion?.version || 1}
           </div>
           <div className="flex items-center text-xs text-gray-500">
-            <User className="mr-1.5 h-3.5 w-3.5" />
-            Client: {project.client}
+            <Calendar className="mr-1.5 h-3.5 w-3.5" />
+            Updated: {new Date(currentVersion?.updatedAt || project.updatedAt).toLocaleDateString()}
           </div>
           <div className="flex items-center text-xs text-gray-500">
             <svg
@@ -221,7 +238,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
               <polyline points="3.29 7 12 12 20.71 7" />
               <line x1="12" x2="12" y1="22" y2="12" />
             </svg>
-            Type: {project.type}
+            Progress: {currentVersion?.progress || 0}%
           </div>
         </div>
       </div>

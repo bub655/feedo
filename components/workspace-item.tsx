@@ -1,31 +1,48 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Building, ChevronDown, ChevronUp, Users, Video } from "lucide-react"
 import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, arrayUnion } from "firebase/firestore"
+import { doc, updateDoc, getDoc } from "firebase/firestore"
+import { useUser } from "@clerk/nextjs"
+import { toast } from "sonner"
+
+interface ProjectVersion {
+  id: string
+  title: string
+  videoUrl: string
+  thumbnail: string
+  status: string
+  progress: number
+  createdAt: string
+  updatedAt: string
+  comments: any[]
+  annotations: any[]
+  version: number
+  videoSize?: number
+  videoDuration?: number
+}
 
 interface Project {
   id: string
-  title: string
-  thumbnail: string
-  status: string
-  dueDate: string
-  client: string
-  type: string
-  videoUrl?: string | null
+  name: string
+  description?: string
+  versions: ProjectVersion[]
+  currentVersion: number
+  createdAt: string
+  updatedAt: string
 }
 
 interface Workspace {
   id: string
   name: string
   description?: string
-  members: number
-  teamMembers?: string[]
-  videos: number
+  members: string[]
   projects: Project[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface WorkspaceItemProps {
@@ -35,33 +52,83 @@ interface WorkspaceItemProps {
 }
 
 export default function WorkspaceItem({ workspace, isExpanded, onToggle }: WorkspaceItemProps) {
+  const { user } = useUser()
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const workspaceRef = doc(db, "workspaces", workspace.id)
+        const workspaceDoc = await getDoc(workspaceRef)
+
+        if (workspaceDoc.exists()) {
+          const workspaceData = workspaceDoc.data()
+          const projects = workspaceData.projects || []
+          setProjects(projects)
+        }
+      } catch (error) {
+        console.error("Error fetching projects:", error)
+        setProjects([])
+      }
+    }
+
+    fetchProjects()
+  }, [workspace.id])
 
   const handleVideoAdded = async (videoData: any) => {
+    if (!user) return
+
     try {
       const newProject = {
         id: videoData.id,
-        title: videoData.title || 'Untitled Video',
-        thumbnail: videoData.thumbnail || "/placeholder.svg?height=150&width=250",
-        status: "In Progress",
-        dueDate: videoData.dueDate || new Date().toISOString(),
-        client: workspace.name,
-        type: "Video",
-        videoUrl: videoData.videoUrl || null,
+        name: videoData.title || 'Untitled Video',
+        description: videoData.description || '',
+        versions: [{
+          id: videoData.id,
+          title: videoData.title || 'Untitled Video',
+          videoUrl: videoData.videoUrl || '',
+          thumbnail: videoData.thumbnail || '',
+          status: "processing",
+          progress: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          comments: [],
+          annotations: [],
+          version: 1,
+          videoSize: videoData.videoSize || 0,
+          videoDuration: videoData.videoDuration || 0
+        }],
+        currentVersion: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
 
-      // Update workspace in Firestore
+      // Get the workspace document
       const workspaceRef = doc(db, "workspaces", workspace.id)
-      await updateDoc(workspaceRef, {
-        projects: arrayUnion(newProject),
-        videos: workspace.videos + 1
-      })
+      const workspaceDoc = await getDoc(workspaceRef)
 
-      // Update local state
-      workspace.projects.push(newProject)
-      workspace.videos += 1
+      if (workspaceDoc.exists()) {
+        const workspaceData = workspaceDoc.data()
+        const projects = workspaceData.projects || []
+
+        // Add new project to workspace
+        projects.push(newProject)
+
+        // Update workspace with new projects array
+        await updateDoc(workspaceRef, {
+          projects: projects,
+          updatedAt: new Date().toISOString()
+        })
+
+        // Update local state
+        setProjects([...projects])
+      }
+
+      toast.success("Video added successfully!")
     } catch (error) {
-      console.error("Error adding video to workspace:", error)
+      console.error("Error adding video:", error)
+      toast.error("Failed to add video. Please try again.")
     }
   }
 
@@ -77,11 +144,11 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                {workspace.members} members
+                {workspace.members.length} members
               </span>
               <span className="flex items-center gap-1">
                 <Video className="h-4 w-4" />
-                {workspace.videos} videos
+                {projects.length} projects
               </span>
             </div>
           </div>
@@ -103,10 +170,15 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
             <h4 className="font-md text-gray-700">Projects</h4>
           </div>
 
-          {workspace.projects.length > 0 ? (
+          {projects.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {workspace.projects.map((project) => (
-                <ProjectCard key={project.id} project={project} workspaceId={workspace.id}/>
+              {projects.map((project) => (
+                <ProjectCard 
+                  key={project.id} 
+                  project={project} 
+                  workspaceId={workspace.id}
+                  versionHistory={project.versions}
+                />
               ))}
             </div>
           ) : (

@@ -42,6 +42,32 @@ interface VideoPageClientProps {
   videoId: string
 }
 
+interface ProjectVersion {
+  id: string
+  title: string
+  videoUrl: string
+  thumbnail: string
+  status: string
+  progress: number
+  createdAt: string
+  updatedAt: string
+  comments: any[]
+  annotations: any[]
+  version: number
+  videoSize?: number
+  videoDuration?: number
+}
+
+interface Project {
+  id: string
+  name: string
+  description?: string
+  versions: ProjectVersion[]
+  currentVersion: number
+  createdAt: string
+  updatedAt: string
+}
+
 interface Video {
   id: string
   title: string
@@ -58,6 +84,7 @@ interface Video {
   progress: number
   comments?: Comment[]
   annotations?: Annotation[]
+  version: number
 }
 
 interface Comment {
@@ -100,55 +127,86 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        const docRef = doc(db, "projects", videoId)
-        const docSnap = await getDoc(docRef)
+        // First, find the workspace that contains this video
+        const workspacesQuery = query(collection(db, "workspaces"))
+        const workspacesSnapshot = await getDocs(workspacesQuery)
         
-        if (docSnap.exists()) {
-          const videoData = docSnap.data()
-          setVideo({
-            id: docSnap.id,
-            ...videoData,
-          } as Video)
-          // Set initial comments and annotations from the video document
-          setComments(videoData.comments?.sort((a: Comment, b: Comment) => 
-            b.createdAt.toMillis() - a.createdAt.toMillis()
-          ) || [])
-          setAnnotations(videoData.annotations || [])
+        let foundVideo: Video | null = null
+        let foundWorkspaceId = ""
 
-          // Set up real-time listener for comments
-          const unsubscribe = onSnapshot(docRef, (doc) => {
+        for (const workspaceDoc of workspacesSnapshot.docs) {
+          const workspaceData = workspaceDoc.data()
+          const projects = workspaceData.projects || []
+          
+          // Search through all projects and their versions
+          for (const project of projects) {
+            const matchingVersion = project.versions.find((v: ProjectVersion) => v.id === videoId)
+            if (matchingVersion) {
+              foundVideo = {
+                id: matchingVersion.id,
+                title: matchingVersion.title,
+                status: matchingVersion.status,
+                videoUrl: matchingVersion.videoUrl,
+                thumbnail: matchingVersion.thumbnail,
+                client: workspaceData.name,
+                dueDate: project.createdAt,
+                updatedAt: matchingVersion.updatedAt,
+                progress: matchingVersion.progress,
+                comments: matchingVersion.comments || [],
+                annotations: matchingVersion.annotations || [],
+                version: matchingVersion.version
+              }
+              foundWorkspaceId = workspaceDoc.id
+              break
+            }
+          }
+          
+          if (foundVideo) break
+        }
+
+        if (foundVideo) {
+          setVideo(foundVideo)
+          setWorkspaceId(foundWorkspaceId)
+          setComments(foundVideo.comments || [])
+          setAnnotations(foundVideo.annotations || [])
+
+          // Set up real-time listener for the workspace
+          const workspaceRef = doc(db, "workspaces", foundWorkspaceId)
+          const unsubscribe = onSnapshot(workspaceRef, (doc) => {
             if (doc.exists()) {
-              const updatedData = doc.data()
-              setComments(updatedData.comments?.sort((a: Comment, b: Comment) => 
-                b.createdAt.toMillis() - a.createdAt.toMillis()
-              ) || [])
-              setAnnotations(updatedData.annotations || [])
+              const workspaceData = doc.data()
+              const projects = workspaceData.projects || []
+              
+              // Find the project and version again
+              for (const project of projects) {
+                const matchingVersion = project.versions.find((v: ProjectVersion) => v.id === videoId)
+                if (matchingVersion) {
+                  const updatedVideo = {
+                    id: matchingVersion.id,
+                    title: matchingVersion.title,
+                    status: matchingVersion.status,
+                    videoUrl: matchingVersion.videoUrl,
+                    thumbnail: matchingVersion.thumbnail,
+                    client: workspaceData.name,
+                    dueDate: project.createdAt,
+                    updatedAt: matchingVersion.updatedAt,
+                    progress: matchingVersion.progress,
+                    comments: matchingVersion.comments || [],
+                    annotations: matchingVersion.annotations || [],
+                    version: matchingVersion.version
+                  }
+                  setVideo(updatedVideo)
+                  setComments(updatedVideo.comments || [])
+                  setAnnotations(updatedVideo.annotations || [])
+                  break
+                }
+              }
             }
           })
 
-          // Cleanup function to unsubscribe from the listener
           return () => unsubscribe()
-
-          // Find the workspace ID by searching for a workspace with matching client name
-          if (videoData.client) {
-            try {
-              const workspacesQuery = query(
-                collection(db, "workspaces"), 
-                where("name", "==", videoData.client)
-              )
-              const workspacesSnapshot = await getDocs(workspacesQuery)
-              if (!workspacesSnapshot.empty) {
-                const workspaceDoc = workspacesSnapshot.docs[0]
-                setWorkspaceId(workspaceDoc.id)
-              } else {
-                console.warn("No workspace found for client:", videoData.client)
-              }
-            } catch (error) {
-              console.error("Error finding workspace:", error)
-            }
-          } else {
-            console.warn("Video has no client field")
-          }
+        } else {
+          console.warn("No video found with ID:", videoId)
         }
       } catch (error) {
         console.error("Error fetching video:", error)
