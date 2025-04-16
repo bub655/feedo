@@ -127,89 +127,63 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        // First, find the workspace that contains this video
-        const workspacesQuery = query(collection(db, "workspaces"))
-        const workspacesSnapshot = await getDocs(workspacesQuery)
-        
-        let foundVideo: Video | null = null
-        let foundWorkspaceId = ""
+        // Directly fetch the project document from the projects collection
+        const projectRef = doc(db, "projects", videoId)
+        const projectDoc = await getDoc(projectRef)
 
-        for (const workspaceDoc of workspacesSnapshot.docs) {
-          const workspaceData = workspaceDoc.data()
-          const projects = workspaceData.projects || []
-          
-          // Search through all projects and their versions
-          for (const project of projects) {
-            const matchingVersion = project.versions.find((v: ProjectVersion) => v.id === videoId)
-            if (matchingVersion) {
-              foundVideo = {
-                id: matchingVersion.id,
-                title: matchingVersion.title,
-                status: matchingVersion.status,
-                videoUrl: matchingVersion.videoUrl,
-                thumbnail: matchingVersion.thumbnail,
-                client: workspaceData.name,
-                dueDate: project.createdAt,
-                updatedAt: matchingVersion.updatedAt,
-                progress: matchingVersion.progress,
-                comments: matchingVersion.comments || [],
-                annotations: matchingVersion.annotations || [],
-                version: matchingVersion.version
-              }
-              foundWorkspaceId = workspaceDoc.id
-              break
-            }
+        if (projectDoc.exists()) {
+          const projectData = projectDoc.data()
+          const foundVideo: Video = {
+            id: projectDoc.id,
+            title: projectData.title,
+            status: projectData.status,
+            videoUrl: projectData.videoUrl,
+            thumbnail: projectData.thumbnail,
+            client: projectData.client,
+            dueDate: projectData.dueDate,
+            updatedAt: projectData.updatedAt,
+            metadata: projectData.metadata,
+            progress: projectData.progress,
+            comments: projectData.comments || [],
+            annotations: projectData.annotations || [],
+            version: projectData.version
           }
-          
-          if (foundVideo) break
-        }
 
-        if (foundVideo) {
           setVideo(foundVideo)
-          setWorkspaceId(foundWorkspaceId)
           setComments(foundVideo.comments || [])
           setAnnotations(foundVideo.annotations || [])
 
-          // Set up real-time listener for the workspace
-          const workspaceRef = doc(db, "workspaces", foundWorkspaceId)
-          const unsubscribe = onSnapshot(workspaceRef, (doc) => {
+          // Set up real-time listener for the project
+          const unsubscribe = onSnapshot(projectRef, (doc) => {
             if (doc.exists()) {
-              const workspaceData = doc.data()
-              const projects = workspaceData.projects || []
-              
-              // Find the project and version again
-              for (const project of projects) {
-                const matchingVersion = project.versions.find((v: ProjectVersion) => v.id === videoId)
-                if (matchingVersion) {
-                  const updatedVideo = {
-                    id: matchingVersion.id,
-                    title: matchingVersion.title,
-                    status: matchingVersion.status,
-                    videoUrl: matchingVersion.videoUrl,
-                    thumbnail: matchingVersion.thumbnail,
-                    client: workspaceData.name,
-                    dueDate: project.createdAt,
-                    updatedAt: matchingVersion.updatedAt,
-                    progress: matchingVersion.progress,
-                    comments: matchingVersion.comments || [],
-                    annotations: matchingVersion.annotations || [],
-                    version: matchingVersion.version
-                  }
-                  setVideo(updatedVideo)
-                  setComments(updatedVideo.comments || [])
-                  setAnnotations(updatedVideo.annotations || [])
-                  break
-                }
+              const updatedData = doc.data()
+              const updatedVideo: Video = {
+                id: doc.id,
+                title: updatedData.title,
+                status: updatedData.status,
+                videoUrl: updatedData.videoUrl,
+                thumbnail: updatedData.thumbnail,
+                client: updatedData.client,
+                dueDate: updatedData.dueDate,
+                updatedAt: updatedData.updatedAt,
+                metadata: updatedData.metadata,
+                progress: updatedData.progress,
+                comments: updatedData.comments || [],
+                annotations: updatedData.annotations || [],
+                version: updatedData.version
               }
+              setVideo(updatedVideo)
+              setComments(updatedVideo.comments || [])
+              setAnnotations(updatedVideo.annotations || [])
             }
           })
 
           return () => unsubscribe()
         } else {
-          console.warn("No video found with ID:", videoId)
+          console.warn("No project found with ID:", videoId)
         }
       } catch (error) {
-        console.error("Error fetching video:", error)
+        console.error("Error fetching project:", error)
       } finally {
         setLoading(false)
       }
@@ -278,7 +252,6 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         comments: arrayUnion(newComment)
       })
       
-      // Remove the local state update since the real-time listener will handle it
       setCommentInput("")
     } catch (error) {
       console.error("Error adding comment:", error)
@@ -302,17 +275,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           createdAt: Timestamp.now()
         }
 
-        // First remove the old annotation
         await updateDoc(docRef, {
           annotations: arrayRemove(selectedAnnotation)
         })
 
-        // Then add the updated annotation
         await updateDoc(docRef, {
           annotations: arrayUnion(updatedAnnotation)
         })
 
-        // Update the selected annotation in state
         setSelectedAnnotation(updatedAnnotation)
       } else {
         // Create new annotation
@@ -363,22 +333,22 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
+    const milliseconds = Math.floor((time % 1) * 1000)
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}.${milliseconds.toString().padStart(3, '0')}`
   }
 
   const handleAnnotationClick = (annotation: Annotation) => {
-    // Clear current selection if clicking on a different annotation
     if (selectedAnnotation?.id !== annotation.id) {
       setSelectedAnnotation(annotation)
     } else {
       setSelectedAnnotation(null)
     }
-    // Convert timestamp string to seconds
-    const [minutes, seconds] = annotation.timestamp.split(':').map(Number)
-    const timeInSeconds = minutes * 60 + seconds
+    // Convert timestamp string to seconds with milliseconds
+    const [minutes, secondsAndMs] = annotation.timestamp.split(':')
+    const [seconds, milliseconds] = secondsAndMs.split('.')
+    const timeInSeconds = (parseInt(minutes) * 60) + parseInt(seconds) + (parseInt(milliseconds) / 1000)
     setSeekTo(timeInSeconds)
     setIsPlaying(false)
-    // Pause the video
     const video = document.querySelector('video')
     if (video) {
       video.pause()
@@ -386,15 +356,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   }
 
   const handleCommentClick = (comment: Comment) => {
-    // Clear any selected annotation when clicking on a comment
     setSelectedAnnotation(null)
     if (comment.timestamp) {
-      // Convert timestamp string to seconds
-      const [minutes, seconds] = comment.timestamp.split(':').map(Number)
-      const timeInSeconds = minutes * 60 + seconds
+      // Convert timestamp string to seconds with milliseconds
+      const [minutes, secondsAndMs] = comment.timestamp.split(':')
+      const [seconds, milliseconds] = secondsAndMs.split('.')
+      const timeInSeconds = (parseInt(minutes) * 60) + parseInt(seconds) + (parseInt(milliseconds) / 1000)
       setSeekTo(timeInSeconds)
       setIsPlaying(false)
-      // Pause the video
       const video = document.querySelector('video')
       if (video) {
         video.pause()
@@ -410,8 +379,9 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     setCurrentTime(time)
     // Clear annotation if current time doesn't match any annotation's timestamp
     if (selectedAnnotation) {
-      const [minutes, seconds] = selectedAnnotation.timestamp.split(':').map(Number)
-      const annotationTimeInSeconds = minutes * 60 + seconds
+      const [minutes, secondsAndMs] = selectedAnnotation.timestamp.split(':')
+      const [seconds, milliseconds] = secondsAndMs.split('.')
+      const annotationTimeInSeconds = (parseInt(minutes) * 60) + parseInt(seconds) + (parseInt(milliseconds) / 1000)
       // If current time is more than 1 second away from annotation time, clear it
       if (Math.abs(time - annotationTimeInSeconds) > 1) {
         setSelectedAnnotation(null)

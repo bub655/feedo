@@ -119,7 +119,6 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
       video.removeEventListener('timeupdate', handleTimeUpdate)
     }
   }, [currentVersion?.videoUrl])
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "In Progress":
@@ -152,7 +151,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
           <source src={currentVersion?.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${currentVersion.videoUrl}` : ''} type="video/mp4" />
         </video>
 
-        <Link href={`/dashboard/video/${project.id}`}>
+        <Link href={`/dashboard/video/${currentVersion?.id || project.id}`}>
           {isLoading ? (
             <div className="h-36 w-full animate-pulse bg-gray-200 flex items-center justify-center">
               <div className="text-gray-400">Loading thumbnail...</div>
@@ -176,7 +175,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
 
       <div className="p-4">
         <div className="flex items-start justify-between">
-          <Link href={`/dashboard/video/${project.id}`} className="hover:underline">
+          <Link href={`/dashboard/video/${currentVersion?.id || project.id}`} className="hover:underline">
             <h3 className="font-medium text-gray-900">{currentVersion?.title || project.name}</h3>
           </Link>
 
