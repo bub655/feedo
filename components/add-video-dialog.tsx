@@ -35,7 +35,6 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   const [dueDate, setDueDate] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +62,6 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
 
     try {
       setUploading(true)
-      setUploadProgress(0)
 
       // Get presigned URL
       const presignResponse = await fetch('/api/upload/presign', {
@@ -101,6 +99,20 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         throw new Error('Failed to upload to S3')
       }
 
+      // get video duration
+      const getVideoDurationInSeconds = (file: File): Promise<number> => {
+        return new Promise((resolve) => {
+          const video = document.createElement('video')
+          video.preload = 'metadata'
+          video.onloadedmetadata = () => {
+            window.URL.revokeObjectURL(video.src)
+            resolve(video.duration)
+          }
+          video.src = URL.createObjectURL(file)
+        })
+      }
+
+      const videoDuration = await getVideoDurationInSeconds(selectedFile)
       // Create video document
       const videoData = {
         id: uuidv4(),
@@ -109,12 +121,15 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         videoUrl: key,
         thumbnail: "/placeholder.svg?height=150&width=250",
         client: workspaceName,
-        status: "processing",
+        status: "In Progress",
         progress: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         comments: [],
-        annotations: []
+        annotations: [],
+        videoSize: selectedFile.size,
+        videoDuration: videoDuration || 0,
+        videoType: selectedFile.type,
       }
 
       // Create video document in Firestore
@@ -133,7 +148,6 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       toast.error("Failed to upload video. Please try again.")
     } finally {
       setUploading(false)
-      setUploadProgress(0)
       setSelectedFile(null)
       setTitle("")
       setDueDate("")
@@ -145,7 +159,6 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     setDueDate("")
     setSelectedFile(null)
     setUploading(false)
-    setUploadProgress(0)
   }
 
   return (
@@ -201,6 +214,10 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
               className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center"
               onDragOver={handleDragOver}
               onDrop={handleDrop}
+              onClick={(e) => {
+                e.stopPropagation()
+                fileInputRef.current?.click()
+              }}
             >
               {selectedFile ? (
                 <div className="space-y-2">
@@ -236,30 +253,8 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
                 ref={fileInputRef}
                 onChange={handleFileSelect}
               />
-              <label htmlFor="video-upload">
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    fileInputRef.current?.click()
-                  }}
-                >
-                  Browse Files
-                </Button>
-              </label>
             </div>
           </div>
-
-          {uploading && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Uploading...</span>
-                <span>{Math.round(uploadProgress)}%</span>
-              </div>
-              <Progress value={uploadProgress} />
-            </div>
-          )}
         </div>
 
         <div className="flex justify-end gap-3">

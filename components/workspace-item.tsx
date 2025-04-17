@@ -5,34 +5,30 @@ import { Building, ChevronDown, ChevronUp, Users, Video } from "lucide-react"
 import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, getDoc } from "firebase/firestore"
+import { doc, updateDoc, getDoc, setDoc } from "firebase/firestore"
 import { useUser } from "@clerk/nextjs"
 import { toast } from "sonner"
 
 interface ProjectVersion {
-  id: string
-  title: string
-  videoUrl: string
-  thumbnail: string
-  status: string
-  progress: number
-  createdAt: string
-  updatedAt: string
-  comments: any[]
-  annotations: any[]
-  version: number
-  videoSize?: number
-  videoDuration?: number
+  id: string,
+  videoUrl: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
 }
 
 interface Project {
-  id: string
-  name: string
-  description?: string
-  versions: ProjectVersion[]
-  currentVersion: number
-  createdAt: string
-  updatedAt: string
+  id: string,
+  title: string,
+  numVersions: number,
+  status: string,
+  progress: number,
+  createdAt: string,
+  updatedAt: string,
+  dueDate: string,
+  versions: ProjectVersion[],
+  size: number,
 }
 
 interface Workspace {
@@ -40,7 +36,8 @@ interface Workspace {
   name: string
   description?: string
   members: string[]
-  projects: Project[]
+  projects: Project[],
+  size: number,
   createdAt?: string
   updatedAt?: string
 }
@@ -80,28 +77,50 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
     if (!user) return
 
     try {
-      const newProject = {
-        id: videoData.id,
-        name: videoData.title || 'Untitled Video',
-        description: videoData.description || '',
-        versions: [{
-          id: videoData.id,
-          title: videoData.title || 'Untitled Video',
-          videoUrl: videoData.videoUrl || '',
-          thumbnail: videoData.thumbnail || '',
-          status: "processing",
-          progress: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          comments: [],
-          annotations: [],
-          version: 1,
-          videoSize: videoData.videoSize || 0,
-          videoDuration: videoData.videoDuration || 0
-        }],
-        currentVersion: 1,
+      // add project to firestore
+      // const newProject = {
+      //   id: videoData.id,
+      //   description: videoData.description || '',
+      //   title: videoData.title || 'Untitled Video',
+      //   videoUrl: videoData.videoUrl || '',
+      //   thumbnail: videoData.thumbnail || '',
+      //   status: "In Progress",
+      //   createdAt: new Date().toISOString(),
+      //   updatedAt: new Date().toISOString(),
+      //   comments: [],
+      //   annotations: [],
+      //   progress: 0,
+      //   videoSize: videoData.videoSize || 0,
+      //   videoDuration: videoData.videoDuration || 0,
+      //   dueDate: new Date().toISOString(),
+      // }
+
+      // try {
+      //   await setDoc(doc(db, "projects", videoData.id), newProject)
+      // } catch (error) {
+      //   console.error("Error adding project to projects firestore:", error)
+      //   toast.error("Failed to add project to projects firestore. Please try again.")
+      // }
+
+      const newWorkspaceProject = {
+        title: videoData.title || 'Untitled Video',
+        numVersions: 1,
+        status: "In Progress",
+        progress: 0,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        dueDate: new Date().toISOString(),
+        versions: [
+          {
+            id: videoData.id,
+            videoUrl: videoData.videoUrl || '',
+            thumbnail: videoData.thumbnail || '',
+            version: 1,
+            videoSize: videoData.videoSize || 0,
+            videoType: videoData.videoType || '',
+          }
+        ],
+        size: videoData.videoSize || 0,
       }
 
       // Get the workspace document
@@ -113,16 +132,21 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
         const projects = workspaceData.projects || []
 
         // Add new project to workspace
-        projects.push(newProject)
+        projects.unshift(newWorkspaceProject)
+
+        // udpate workspace size
+        const newWorkspaceSize = workspaceData.size + newWorkspaceProject.size
 
         // Update workspace with new projects array
         await updateDoc(workspaceRef, {
           projects: projects,
+          size: newWorkspaceSize,
           updatedAt: new Date().toISOString()
         })
 
         // Update local state
         setProjects([...projects])
+
       }
 
       toast.success("Video added successfully!")
@@ -155,7 +179,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
         </div>
 
         <div className="flex items-center gap-2">
-          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />
+          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded}/>
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (

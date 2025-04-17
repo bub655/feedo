@@ -26,6 +26,8 @@ import {
   User,
   Calendar,
   Users,
+  Upload,
+  CheckCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -37,35 +39,33 @@ import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import AnnotationCanvas from "@/components/annotation-canvas"
 import ShareWorkspaceDialog from "@/components/share-workspace-dialog"
+import ReuploadVideoDialog from "@/components/reupload-video-dialog"
+import { comment } from "postcss"
 
 interface VideoPageClientProps {
   videoId: string
 }
 
 interface ProjectVersion {
-  id: string
-  title: string
-  videoUrl: string
-  thumbnail: string
-  status: string
-  progress: number
-  createdAt: string
-  updatedAt: string
-  comments: any[]
-  annotations: any[]
-  version: number
-  videoSize?: number
-  videoDuration?: number
+  id: string,
+  videoUrl: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
 }
 
 interface Project {
-  id: string
-  name: string
-  description?: string
-  versions: ProjectVersion[]
-  currentVersion: number
-  createdAt: string
-  updatedAt: string
+  id: string,
+  title: string,
+  numVersions: number,
+  status: string,
+  progress: number,
+  createdAt: string,
+  updatedAt: string,
+  dueDate: string,
+  versions: ProjectVersion[],
+  size: number,
 }
 
 interface Video {
@@ -75,16 +75,15 @@ interface Video {
   videoUrl: string
   thumbnail: string
   client: string
-  dueDate: string
-  updatedAt: string
-  metadata?: {
-    size: number
-    type: string
-  }
+  videoSize: number
+  videoType: string
+  videoDuration: number
+  comments: Comment[]
+  annotations: Annotation[]
   progress: number
-  comments?: Comment[]
-  annotations?: Annotation[]
-  version: number
+  createdAt: string
+  updatedAt: string
+  dueDate: string
 }
 
 interface Comment {
@@ -109,6 +108,7 @@ interface Annotation {
   userImageUrl: string
 }
 
+
 export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const { user } = useUser()
   const [video, setVideo] = useState<Video | null>(null)
@@ -123,6 +123,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
   const [workspaceId, setWorkspaceId] = useState<string>("")
+  const [isReuploadDialogOpen, setIsReuploadDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -141,12 +142,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
             thumbnail: projectData.thumbnail,
             client: projectData.client,
             dueDate: projectData.dueDate,
-            updatedAt: projectData.updatedAt,
-            metadata: projectData.metadata,
             progress: projectData.progress,
             comments: projectData.comments || [],
             annotations: projectData.annotations || [],
-            version: projectData.version
+            videoSize: projectData.videoSize,
+            videoType: projectData.videoType,
+            videoDuration: projectData.videoDuration,
+            createdAt: projectData.createdAt,
+            updatedAt: projectData.updatedAt,
           }
 
           setVideo(foundVideo)
@@ -165,12 +168,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                 thumbnail: updatedData.thumbnail,
                 client: updatedData.client,
                 dueDate: updatedData.dueDate,
-                updatedAt: updatedData.updatedAt,
-                metadata: updatedData.metadata,
                 progress: updatedData.progress,
                 comments: updatedData.comments || [],
                 annotations: updatedData.annotations || [],
-                version: updatedData.version
+                videoSize: updatedData.videoSize,
+                videoType: updatedData.videoType,
+                videoDuration: updatedData.videoDuration,
+                createdAt: updatedData.createdAt,
+                updatedAt: updatedData.updatedAt,
               }
               setVideo(updatedVideo)
               setComments(updatedVideo.comments || [])
@@ -203,7 +208,8 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         const resolvedComment = {
           ...updatedComment,
           isResolved: true,
-          resolvedAt: serverTimestamp()
+          resolvedAt: serverTimestamp(),
+          resolvedBy: user?.id,
         }
 
         // Remove the old comment and add the updated one
@@ -214,11 +220,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           comments: arrayUnion(resolvedComment)
         })
 
+
         // Update local state
         setComments(prevComments =>
           prevComments.map(comment =>
             comment.id === commentId
-              ? { ...comment, isResolved: true }
+              ? { ...comment, isResolved: true, resolvedAt: serverTimestamp(), resolvedBy: user?.id }
               : comment
           )
         )
@@ -308,26 +315,43 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     }
   }
 
-  const handleDeleteAnnotation = async (annotationId: string) => {
+  const handleResolveAnnotation = async (annotationId: string) => {
     if (!video) return
 
     try {
       const docRef = doc(db, "projects", videoId)
-      const annotationToDelete = annotations.find(a => a.id === annotationId)
+      const updatedAnnotation = annotations.find(c => c.id === annotationId)
+      
+      if (updatedAnnotation) {
+        const resolvedAnnotation = {
+          ...updatedAnnotation,
+          isResolved: true,
+          resolvedAt: serverTimestamp(),
+          resolvedBy: user?.id,
+        }
 
-      if (annotationToDelete) {
+        // Remove the old annotation and add the updated one
         await updateDoc(docRef, {
-          annotations: arrayRemove(annotationToDelete)
+          annotations: arrayRemove(updatedAnnotation)
+        })
+        await updateDoc(docRef, {
+          annotations: arrayUnion(resolvedAnnotation)
         })
 
+
         // Update local state
-        setAnnotations(prevAnnotations => 
-          prevAnnotations.filter(annotation => annotation.id !== annotationId)
+        setAnnotations(prevAnnotations =>
+          prevAnnotations.map(annotation =>
+            annotation.id === annotationId
+              ? { ...annotation, isResolved: true, resolvedAt: serverTimestamp(), resolvedBy: user?.id }
+              : annotation
+          )
         )
       }
     } catch (error) {
-      console.error("Error deleting annotation:", error)
+      console.error("Error resolving comment:", error)
     }
+
   }
 
   const formatTime = (time: number): string => {
@@ -424,20 +448,29 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           <Link href="/dashboard" className="mb-2 inline-block text-sm text-gray-500 hover:text-gray-700">
             <ChevronLeft className="mr-1 -mt-0.5 inline-block h-4 w-4" />
             Back to projects
-                </Link>
+          </Link>
 
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{video.title}</h1>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1.5"
-                  onClick={() => setIsShareDialogOpen(true)}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => setIsReuploadDialogOpen(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Reupload
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => setIsShareDialogOpen(true)}
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
             </div>
           </div>
         </div>
@@ -498,13 +531,13 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Format:</span>
                     <span className="font-medium text-gray-900">
-                      {video.metadata?.type || 'MP4'}
+                      {video.videoType || 'MP4'}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Size:</span>
                     <span className="font-medium text-gray-900">
-                      {video.metadata?.size ? `${(video.metadata.size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}
+                      {video.videoSize ? `${(video.videoSize / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}
                     </span>
                   </div>
                 </div>
@@ -561,11 +594,11 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                       size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleDeleteAnnotation(item.id)
+                              handleResolveAnnotation(item.id)
                             }}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-gray-400 hover:text-green-700"
                           >
-                            Delete
+                            <CheckCircle className="h-5 w-5" />
                     </Button>
                         </div>
                         <div className="aspect-video overflow-hidden rounded-md">
@@ -642,6 +675,13 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         onClose={() => setIsShareDialogOpen(false)}
         workspaceId={workspaceId}
         currentUserEmail={user?.emailAddresses[0]?.emailAddress || ""}
+      />
+      <ReuploadVideoDialog
+        isOpen={isReuploadDialogOpen}
+        onClose={() => setIsReuploadDialogOpen(false)}
+        projectId={videoId}
+        currentVersion={video}
+        workspaceId={workspaceId}
       />
     </div>
   )

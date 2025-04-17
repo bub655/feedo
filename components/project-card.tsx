@@ -14,29 +14,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { db } from "@/lib/firebase"
+import { doc, updateDoc } from "firebase/firestore"
 
 interface ProjectVersion {
-  id: string
-  title: string
-  videoUrl: string
-  thumbnail: string
-  status: string
-  progress: number
-  createdAt: string
-  updatedAt: string
-  version: number
-  videoSize?: number
-  videoDuration?: number
+  id: string,
+  videoUrl: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
 }
 
 interface Project {
-  id: string
-  name: string
-  description?: string
-  versions: ProjectVersion[]
-  currentVersion: number
-  createdAt: string
-  updatedAt: string
+  title: string,
+  numVersions: number,
+  status: string,
+  progress: number,
+  createdAt: string,
+  updatedAt: string,
+  dueDate: string,
+  versions: ProjectVersion[],
+  size: number,
 }
 
 interface ProjectCardProps {
@@ -46,8 +45,8 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project, workspaceId, versionHistory }: ProjectCardProps) {
-  const currentVersion = project.versions[project.currentVersion - 1]
-  const [status, setStatus] = useState(currentVersion?.status || "processing")
+  const currentVersion = project.versions[project.numVersions - 1]
+  const [status, setStatus] = useState(project.status || "processing")
   const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
   const [isLoading, setIsLoading] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -136,6 +135,12 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
     }
   }
 
+  const changeStatus = (status: string) => {
+    setStatus(status)
+    // update status in firestore workspace collection for the given project
+
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
@@ -148,10 +153,10 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
           muted
           crossOrigin="anonymous"
         >
-          <source src={currentVersion?.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${currentVersion.videoUrl}` : ''} type="video/mp4" />
+          <source src={currentVersion?.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${currentVersion.videoUrl}` : ''} type={currentVersion?.videoType} />
         </video>
 
-        <Link href={`/dashboard/video/${currentVersion?.id || project.id}`}>
+        <Link href={`/dashboard/video/${currentVersion.id}`}>
           {isLoading ? (
             <div className="h-36 w-full animate-pulse bg-gray-200 flex items-center justify-center">
               <div className="text-gray-400">Loading thumbnail...</div>
@@ -159,7 +164,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
           ) : (
             <Image
               src={thumbnailSrc}
-              alt={currentVersion?.title || project.name}
+              alt={project.title || "Untitled Video"}
               width={250}
               height={150}
               className="h-36 w-full object-cover"
@@ -175,8 +180,8 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
 
       <div className="p-4">
         <div className="flex items-start justify-between">
-          <Link href={`/dashboard/video/${currentVersion?.id || project.id}`} className="hover:underline">
-            <h3 className="font-medium text-gray-900">{currentVersion?.title || project.name}</h3>
+          <Link href={`/dashboard/video/${currentVersion.id}`} className="hover:underline">
+            <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
           <DropdownMenu>
@@ -202,11 +207,13 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
+
               <SelectItem value="In Progress">In Progress</SelectItem>
               <SelectItem value="Pending Review">Pending Review</SelectItem>
               <SelectItem value="Approved">Approved</SelectItem>
               <SelectItem value="Rejected">Rejected</SelectItem>
               <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="None">Processing</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -218,7 +225,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
           </div>
           <div className="flex items-center text-xs text-gray-500">
             <Calendar className="mr-1.5 h-3.5 w-3.5" />
-            Updated: {new Date(currentVersion?.updatedAt || project.updatedAt).toLocaleDateString()}
+            Updated: {new Date(project.updatedAt).toLocaleDateString()}
           </div>
           <div className="flex items-center text-xs text-gray-500">
             <svg
@@ -237,7 +244,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
               <polyline points="3.29 7 12 12 20.71 7" />
               <line x1="12" x2="12" y1="22" y2="12" />
             </svg>
-            Progress: {currentVersion?.progress || 0}%
+            Progress: {project.progress || 0}%
           </div>
         </div>
       </div>
