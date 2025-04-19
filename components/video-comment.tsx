@@ -53,7 +53,7 @@ export default function VideoComment({
                   e.stopPropagation()
                   onResolve()
                 }}
-                className={`${isResolved ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-500'}`}
+                className={`${isResolved ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-green-700'}`}
               >
                 <CheckCircle className="h-5 w-5" />
               </Button>

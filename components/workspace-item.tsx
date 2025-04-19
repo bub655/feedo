@@ -1,31 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Building, ChevronDown, ChevronUp, Users, Video } from "lucide-react"
 import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, arrayUnion } from "firebase/firestore"
+import { doc, updateDoc, getDoc, setDoc } from "firebase/firestore"
+import { useUser } from "@clerk/nextjs"
+import { toast } from "sonner"
+
+interface ProjectVersion {
+  id: string,
+  videoUrl: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
+}
 
 interface Project {
-  id: string
-  title: string
-  thumbnail: string
-  status: string
-  dueDate: string
-  client: string
-  type: string
-  videoUrl?: string | null
+  id: string,
+  title: string,
+  numVersions: number,
+  status: string,
+  progress: number,
+  createdAt: string,
+  updatedAt: string,
+  dueDate: string,
+  versions: ProjectVersion[],
+  size: number,
 }
 
 interface Workspace {
   id: string
   name: string
   description?: string
-  members: number
-  teamMembers?: string[]
-  videos: number
-  projects: Project[]
+  members: string[]
+  projects: Project[],
+  size: number,
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface WorkspaceItemProps {
@@ -35,33 +49,110 @@ interface WorkspaceItemProps {
 }
 
 export default function WorkspaceItem({ workspace, isExpanded, onToggle }: WorkspaceItemProps) {
+  const { user } = useUser()
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const workspaceRef = doc(db, "workspaces", workspace.id)
+        const workspaceDoc = await getDoc(workspaceRef)
+
+        if (workspaceDoc.exists()) {
+          const workspaceData = workspaceDoc.data()
+          const projects = workspaceData.projects || []
+          setProjects(projects)
+        }
+      } catch (error) {
+        console.error("Error fetching projects:", error)
+        setProjects([])
+      }
+    }
+
+    fetchProjects()
+  }, [workspace.id])
 
   const handleVideoAdded = async (videoData: any) => {
+    if (!user) return
+
     try {
-      const newProject = {
-        id: videoData.id,
+      // add project to firestore
+      // const newProject = {
+      //   id: videoData.id,
+      //   description: videoData.description || '',
+      //   title: videoData.title || 'Untitled Video',
+      //   videoUrl: videoData.videoUrl || '',
+      //   thumbnail: videoData.thumbnail || '',
+      //   status: "In Progress",
+      //   createdAt: new Date().toISOString(),
+      //   updatedAt: new Date().toISOString(),
+      //   comments: [],
+      //   annotations: [],
+      //   progress: 0,
+      //   videoSize: videoData.videoSize || 0,
+      //   videoDuration: videoData.videoDuration || 0,
+      //   dueDate: new Date().toISOString(),
+      // }
+
+      // try {
+      //   await setDoc(doc(db, "projects", videoData.id), newProject)
+      // } catch (error) {
+      //   console.error("Error adding project to projects firestore:", error)
+      //   toast.error("Failed to add project to projects firestore. Please try again.")
+      // }
+
+      const newWorkspaceProject = {
         title: videoData.title || 'Untitled Video',
-        thumbnail: videoData.thumbnail || "/placeholder.svg?height=150&width=250",
+        numVersions: 1,
         status: "In Progress",
-        dueDate: videoData.dueDate || new Date().toISOString(),
-        client: workspace.name,
-        type: "Video",
-        videoUrl: videoData.videoUrl || null,
+        progress: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        dueDate: new Date().toISOString(),
+        versions: [
+          {
+            id: videoData.id,
+            videoUrl: videoData.videoUrl || '',
+            thumbnail: videoData.thumbnail || '',
+            version: 1,
+            videoSize: videoData.videoSize || 0,
+            videoType: videoData.videoType || '',
+          }
+        ],
+        size: videoData.videoSize || 0,
       }
 
-      // Update workspace in Firestore
+      // Get the workspace document
       const workspaceRef = doc(db, "workspaces", workspace.id)
-      await updateDoc(workspaceRef, {
-        projects: arrayUnion(newProject),
-        videos: workspace.videos + 1
-      })
+      const workspaceDoc = await getDoc(workspaceRef)
 
-      // Update local state
-      workspace.projects.push(newProject)
-      workspace.videos += 1
+      if (workspaceDoc.exists()) {
+        const workspaceData = workspaceDoc.data()
+        const projects = workspaceData.projects || []
+
+        // Add new project to workspace
+        projects.unshift(newWorkspaceProject)
+
+        // udpate workspace size
+        const newWorkspaceSize = workspaceData.size + newWorkspaceProject.size
+
+        // Update workspace with new projects array
+        await updateDoc(workspaceRef, {
+          projects: projects,
+          size: newWorkspaceSize,
+          updatedAt: new Date().toISOString()
+        })
+
+        // Update local state
+        setProjects([...projects])
+
+      }
+
+      toast.success("Video added successfully!")
     } catch (error) {
-      console.error("Error adding video to workspace:", error)
+      console.error("Error adding video:", error)
+      toast.error("Failed to add video. Please try again.")
     }
   }
 
@@ -77,18 +168,18 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                {workspace.members} members
+                {workspace.members.length} members
               </span>
               <span className="flex items-center gap-1">
                 <Video className="h-4 w-4" />
-                {workspace.videos} videos
+                {projects.length} projects
               </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />
+          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded}/>
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (
@@ -103,10 +194,15 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
             <h4 className="font-md text-gray-700">Projects</h4>
           </div>
 
-          {workspace.projects.length > 0 ? (
+          {projects.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {workspace.projects.map((project) => (
-                <ProjectCard key={project.id} project={project} workspaceId={workspace.id}/>
+              {projects.map((project) => (
+                <ProjectCard 
+                  key={project.id} 
+                  project={project} 
+                  workspaceId={workspace.id}
+                  versionHistory={project.versions}
+                />
               ))}
             </div>
           ) : (

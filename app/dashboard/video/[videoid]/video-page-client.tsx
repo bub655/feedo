@@ -26,6 +26,8 @@ import {
   User,
   Calendar,
   Users,
+  Upload,
+  CheckCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -37,9 +39,33 @@ import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import AnnotationCanvas from "@/components/annotation-canvas"
 import ShareWorkspaceDialog from "@/components/share-workspace-dialog"
+import ReuploadVideoDialog from "@/components/reupload-video-dialog"
+import { comment } from "postcss"
 
 interface VideoPageClientProps {
   videoId: string
+}
+
+interface ProjectVersion {
+  id: string,
+  videoUrl: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
+}
+
+interface Project {
+  id: string,
+  title: string,
+  numVersions: number,
+  status: string,
+  progress: number,
+  createdAt: string,
+  updatedAt: string,
+  dueDate: string,
+  versions: ProjectVersion[],
+  size: number,
 }
 
 interface Video {
@@ -49,15 +75,15 @@ interface Video {
   videoUrl: string
   thumbnail: string
   client: string
-  dueDate: string
-  updatedAt: string
-  metadata?: {
-    size: number
-    type: string
-  }
+  videoSize: number
+  videoType: string
+  videoDuration: number
+  comments: Comment[]
+  annotations: Annotation[]
   progress: number
-  comments?: Comment[]
-  annotations?: Annotation[]
+  createdAt: string
+  updatedAt: string
+  dueDate: string
 }
 
 interface Comment {
@@ -82,6 +108,7 @@ interface Annotation {
   userImageUrl: string
 }
 
+
 export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const { user } = useUser()
   const [video, setVideo] = useState<Video | null>(null)
@@ -96,62 +123,81 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined)
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
   const [workspaceId, setWorkspaceId] = useState<string>("")
+  const [isReuploadDialogOpen, setIsReuploadDialogOpen] = useState(false)
+
+  useEffect(() => {
+    // Get workspaceId from URL query parameters
+    const searchParams = new URLSearchParams(window.location.search)
+    const workspaceIdFromUrl = searchParams.get('workspaceId')
+    if (workspaceIdFromUrl) {
+      setWorkspaceId(workspaceIdFromUrl)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        const docRef = doc(db, "projects", videoId)
-        const docSnap = await getDoc(docRef)
-        
-        if (docSnap.exists()) {
-          const videoData = docSnap.data()
-          setVideo({
-            id: docSnap.id,
-            ...videoData,
-          } as Video)
-          // Set initial comments and annotations from the video document
-          setComments(videoData.comments?.sort((a: Comment, b: Comment) => 
-            b.createdAt.toMillis() - a.createdAt.toMillis()
-          ) || [])
-          setAnnotations(videoData.annotations || [])
+        // Directly fetch the project document from the projects collection
+        const projectRef = doc(db, "projects", videoId)
+        const projectDoc = await getDoc(projectRef)
 
-          // Set up real-time listener for comments
-          const unsubscribe = onSnapshot(docRef, (doc) => {
+        if (projectDoc.exists()) {
+          const projectData = projectDoc.data()
+          const foundVideo: Video = {
+            id: projectDoc.id,
+            title: projectData.title,
+            status: projectData.status,
+            videoUrl: projectData.videoUrl,
+            thumbnail: projectData.thumbnail,
+            client: projectData.client,
+            dueDate: projectData.dueDate,
+            progress: projectData.progress,
+            comments: projectData.comments || [],
+            annotations: projectData.annotations || [],
+            videoSize: projectData.videoSize,
+            videoType: projectData.videoType,
+            videoDuration: projectData.videoDuration,
+            createdAt: projectData.createdAt,
+            updatedAt: projectData.updatedAt,
+          }
+
+          setVideo(foundVideo)
+          setComments(foundVideo.comments || [])
+          setAnnotations(foundVideo.annotations || [])
+
+          // Set up real-time listener for the project
+          const unsubscribe = onSnapshot(projectRef, (doc) => {
             if (doc.exists()) {
               const updatedData = doc.data()
-              setComments(updatedData.comments?.sort((a: Comment, b: Comment) => 
-                b.createdAt.toMillis() - a.createdAt.toMillis()
-              ) || [])
-              setAnnotations(updatedData.annotations || [])
+              const updatedVideo: Video = {
+                id: doc.id,
+                title: updatedData.title,
+                status: updatedData.status,
+                videoUrl: updatedData.videoUrl,
+                thumbnail: updatedData.thumbnail,
+                client: updatedData.client,
+                dueDate: updatedData.dueDate,
+                progress: updatedData.progress,
+                comments: updatedData.comments || [],
+                annotations: updatedData.annotations || [],
+                videoSize: updatedData.videoSize,
+                videoType: updatedData.videoType,
+                videoDuration: updatedData.videoDuration,
+                createdAt: updatedData.createdAt,
+                updatedAt: updatedData.updatedAt,
+              }
+              setVideo(updatedVideo)
+              setComments(updatedVideo.comments || [])
+              setAnnotations(updatedVideo.annotations || [])
             }
           })
 
-          // Cleanup function to unsubscribe from the listener
           return () => unsubscribe()
-
-          // Find the workspace ID by searching for a workspace with matching client name
-          if (videoData.client) {
-            try {
-              const workspacesQuery = query(
-                collection(db, "workspaces"), 
-                where("name", "==", videoData.client)
-              )
-              const workspacesSnapshot = await getDocs(workspacesQuery)
-              if (!workspacesSnapshot.empty) {
-                const workspaceDoc = workspacesSnapshot.docs[0]
-                setWorkspaceId(workspaceDoc.id)
-              } else {
-                console.warn("No workspace found for client:", videoData.client)
-              }
-            } catch (error) {
-              console.error("Error finding workspace:", error)
-            }
-          } else {
-            console.warn("Video has no client field")
-          }
+        } else {
+          console.warn("No project found with ID:", videoId)
         }
       } catch (error) {
-        console.error("Error fetching video:", error)
+        console.error("Error fetching project:", error)
       } finally {
         setLoading(false)
       }
@@ -171,7 +217,8 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         const resolvedComment = {
           ...updatedComment,
           isResolved: true,
-          resolvedAt: serverTimestamp()
+          resolvedAt: serverTimestamp(),
+          resolvedBy: user?.id,
         }
 
         // Remove the old comment and add the updated one
@@ -182,11 +229,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           comments: arrayUnion(resolvedComment)
         })
 
+
         // Update local state
         setComments(prevComments =>
           prevComments.map(comment =>
             comment.id === commentId
-              ? { ...comment, isResolved: true }
+              ? { ...comment, isResolved: true, resolvedAt: serverTimestamp(), resolvedBy: user?.id }
               : comment
           )
         )
@@ -220,8 +268,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         comments: arrayUnion(newComment)
       })
       
-      // Remove the local state update since the real-time listener will handle it
-      setCommentInput("")
+      setCommentInput("@time ")
     } catch (error) {
       console.error("Error adding comment:", error)
     }
@@ -244,17 +291,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           createdAt: Timestamp.now()
         }
 
-        // First remove the old annotation
         await updateDoc(docRef, {
           annotations: arrayRemove(selectedAnnotation)
         })
 
-        // Then add the updated annotation
         await updateDoc(docRef, {
           annotations: arrayUnion(updatedAnnotation)
         })
 
-        // Update the selected annotation in state
         setSelectedAnnotation(updatedAnnotation)
       } else {
         // Create new annotation
@@ -280,47 +324,64 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     }
   }
 
-  const handleDeleteAnnotation = async (annotationId: string) => {
+  const handleResolveAnnotation = async (annotationId: string) => {
     if (!video) return
 
     try {
       const docRef = doc(db, "projects", videoId)
-      const annotationToDelete = annotations.find(a => a.id === annotationId)
+      const updatedAnnotation = annotations.find(c => c.id === annotationId)
+      
+      if (updatedAnnotation) {
+        const resolvedAnnotation = {
+          ...updatedAnnotation,
+          isResolved: true,
+          resolvedAt: serverTimestamp(),
+          resolvedBy: user?.id,
+        }
 
-      if (annotationToDelete) {
+        // Remove the old annotation and add the updated one
         await updateDoc(docRef, {
-          annotations: arrayRemove(annotationToDelete)
+          annotations: arrayRemove(updatedAnnotation)
+        })
+        await updateDoc(docRef, {
+          annotations: arrayUnion(resolvedAnnotation)
         })
 
+
         // Update local state
-        setAnnotations(prevAnnotations => 
-          prevAnnotations.filter(annotation => annotation.id !== annotationId)
+        setAnnotations(prevAnnotations =>
+          prevAnnotations.map(annotation =>
+            annotation.id === annotationId
+              ? { ...annotation, isResolved: true, resolvedAt: serverTimestamp(), resolvedBy: user?.id }
+              : annotation
+          )
         )
       }
     } catch (error) {
-      console.error("Error deleting annotation:", error)
+      console.error("Error resolving comment:", error)
     }
+
   }
 
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
+    const milliseconds = Math.floor((time % 1) * 1000)
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}.${milliseconds.toString().padStart(3, '0')}`
   }
 
   const handleAnnotationClick = (annotation: Annotation) => {
-    // Clear current selection if clicking on a different annotation
     if (selectedAnnotation?.id !== annotation.id) {
       setSelectedAnnotation(annotation)
     } else {
       setSelectedAnnotation(null)
     }
-    // Convert timestamp string to seconds
-    const [minutes, seconds] = annotation.timestamp.split(':').map(Number)
-    const timeInSeconds = minutes * 60 + seconds
+    // Convert timestamp string to seconds with milliseconds
+    const [minutes, secondsAndMs] = annotation.timestamp.split(':')
+    const [seconds, milliseconds] = secondsAndMs.split('.')
+    const timeInSeconds = (parseInt(minutes) * 60) + parseInt(seconds) + (parseInt(milliseconds) / 1000)
     setSeekTo(timeInSeconds)
     setIsPlaying(false)
-    // Pause the video
     const video = document.querySelector('video')
     if (video) {
       video.pause()
@@ -328,15 +389,14 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   }
 
   const handleCommentClick = (comment: Comment) => {
-    // Clear any selected annotation when clicking on a comment
     setSelectedAnnotation(null)
     if (comment.timestamp) {
-      // Convert timestamp string to seconds
-      const [minutes, seconds] = comment.timestamp.split(':').map(Number)
-      const timeInSeconds = minutes * 60 + seconds
+      // Convert timestamp string to seconds with milliseconds
+      const [minutes, secondsAndMs] = comment.timestamp.split(':')
+      const [seconds, milliseconds] = secondsAndMs.split('.')
+      const timeInSeconds = (parseInt(minutes) * 60) + parseInt(seconds) + (parseInt(milliseconds) / 1000)
       setSeekTo(timeInSeconds)
       setIsPlaying(false)
-      // Pause the video
       const video = document.querySelector('video')
       if (video) {
         video.pause()
@@ -352,12 +412,32 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
     setCurrentTime(time)
     // Clear annotation if current time doesn't match any annotation's timestamp
     if (selectedAnnotation) {
-      const [minutes, seconds] = selectedAnnotation.timestamp.split(':').map(Number)
-      const annotationTimeInSeconds = minutes * 60 + seconds
+      const [minutes, secondsAndMs] = selectedAnnotation.timestamp.split(':')
+      const [seconds, milliseconds] = secondsAndMs.split('.')
+      const annotationTimeInSeconds = (parseInt(minutes) * 60) + parseInt(seconds) + (parseInt(milliseconds) / 1000)
       // If current time is more than 1 second away from annotation time, clear it
       if (Math.abs(time - annotationTimeInSeconds) > 1) {
         setSelectedAnnotation(null)
       }
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!video?.videoUrl) return
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_AWS_CDN_URL}${video.videoUrl}`)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${video.title}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading video:', error)
     }
   }
 
@@ -385,7 +465,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
       </div>
     )
   }
-
+  console.log("workspace id", workspaceId)
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />
@@ -396,20 +476,29 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
           <Link href="/dashboard" className="mb-2 inline-block text-sm text-gray-500 hover:text-gray-700">
             <ChevronLeft className="mr-1 -mt-0.5 inline-block h-4 w-4" />
             Back to projects
-                </Link>
+          </Link>
 
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{video.title}</h1>
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1.5"
-                  onClick={() => setIsShareDialogOpen(true)}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => setIsReuploadDialogOpen(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Reupload
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => setIsShareDialogOpen(true)}
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
             </div>
           </div>
         </div>
@@ -446,7 +535,12 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   <p className="text-sm text-gray-500">Last updated: {new Date(video.updatedAt).toLocaleDateString()}</p>
                   </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1.5"
+                    onClick={handleDownload}
+                  >
                     <Download className="h-4 w-4" />
                     Download
                   </Button>
@@ -470,13 +564,13 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Format:</span>
                     <span className="font-medium text-gray-900">
-                      {video.metadata?.type || 'MP4'}
+                      {video.videoType || 'MP4'}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Size:</span>
                     <span className="font-medium text-gray-900">
-                      {video.metadata?.size ? `${(video.metadata.size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}
+                      {video.videoSize ? `${(video.videoSize / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}
                     </span>
                   </div>
                 </div>
@@ -533,11 +627,11 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                       size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleDeleteAnnotation(item.id)
+                              handleResolveAnnotation(item.id)
                             }}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-gray-400 hover:text-green-700"
                           >
-                            Delete
+                            <CheckCircle className="h-5 w-5" />
                     </Button>
                         </div>
                         <div className="aspect-video overflow-hidden rounded-md">
@@ -614,6 +708,13 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
         onClose={() => setIsShareDialogOpen(false)}
         workspaceId={workspaceId}
         currentUserEmail={user?.emailAddresses[0]?.emailAddress || ""}
+      />
+      <ReuploadVideoDialog
+        isOpen={isReuploadDialogOpen}
+        onClose={() => setIsReuploadDialogOpen(false)}
+        projectId={videoId}
+        currentVersion={video}
+        workspaceId={workspaceId}
       />
     </div>
   )
