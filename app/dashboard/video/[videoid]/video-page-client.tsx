@@ -126,6 +126,15 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
   const [isReuploadDialogOpen, setIsReuploadDialogOpen] = useState(false)
 
   useEffect(() => {
+    // Get workspaceId from URL query parameters
+    const searchParams = new URLSearchParams(window.location.search)
+    const workspaceIdFromUrl = searchParams.get('workspaceId')
+    if (workspaceIdFromUrl) {
+      setWorkspaceId(workspaceIdFromUrl)
+    }
+  }, [])
+
+  useEffect(() => {
     const fetchVideo = async () => {
       try {
         // Directly fetch the project document from the projects collection
@@ -456,7 +465,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
       </div>
     )
   }
-
+  console.log("workspace id", workspaceId)
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />

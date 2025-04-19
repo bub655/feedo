@@ -45,7 +45,7 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project, workspaceId, versionHistory }: ProjectCardProps) {
-  const currentVersion = project.versions[project.numVersions - 1]
+  const currentVersion = project.versions[project.versions.length - 1]
   const [status, setStatus] = useState(project.status || "processing")
   const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
   const [isLoading, setIsLoading] = useState(true)
@@ -156,7 +156,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
           <source src={currentVersion?.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${currentVersion.videoUrl}` : ''} type={currentVersion?.videoType} />
         </video>
 
-        <Link href={`/dashboard/video/${currentVersion.id}`}>
+        <Link href={`/dashboard/video/${currentVersion.id}?workspaceId=${workspaceId}`}>
           {isLoading ? (
             <div className="h-36 w-full animate-pulse bg-gray-200 flex items-center justify-center">
               <div className="text-gray-400">Loading thumbnail...</div>
@@ -180,7 +180,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
 
       <div className="p-4">
         <div className="flex items-start justify-between">
-          <Link href={`/dashboard/video/${currentVersion.id}`} className="hover:underline">
+          <Link href={`/dashboard/video/${currentVersion.id}?workspaceId=${workspaceId}`} className="hover:underline">
             <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
