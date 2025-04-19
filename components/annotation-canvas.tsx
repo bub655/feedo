@@ -167,18 +167,18 @@ export default function AnnotationCanvas({
           variant="secondary"
           size="icon"
           onClick={() => setIsDrawing(!isDrawing)}
-          className={`${isDrawing ? "bg-primary text-primary-foreground" : "bg-black/50 hover:bg-black/70"}`}
+          className={`${isDrawing ? "bg-primary text-primary-foreground" : "bg-black/50 hover:bg-black/70"} text-white`}
         >
           <Pencil className="h-5 w-5" />
         </Button>
 
         {isDrawing && (
           <>
-            <Button variant="secondary" size="icon" onClick={handleClear} className="bg-black/50 hover:bg-black/70">
+            <Button variant="secondary" size="icon" onClick={handleClear} className="bg-black/50 hover:bg-black/70 text-white">
               <Trash2 className="h-5 w-5" />
             </Button>
 
-            <Button variant="secondary" size="icon" onClick={handleSave} className="bg-black/50 hover:bg-black/70">
+            <Button variant="secondary" size="icon" onClick={handleSave} className="bg-black/50 hover:bg-black/70 text-white">
               <Save className="h-5 w-5" />
             </Button>
           </>

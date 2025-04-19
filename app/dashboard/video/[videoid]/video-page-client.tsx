@@ -629,7 +629,7 @@ export default function VideoPageClient({ videoId }: VideoPageClientProps) {
                               e.stopPropagation()
                               handleResolveAnnotation(item.id)
                             }}
-                            className="text-gray-400 hover:text-green-700"
+                            className="text-white hover:text-green-700"
                           >
                             <CheckCircle className="h-5 w-5" />
                     </Button>
