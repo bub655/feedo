@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Building, Filter, Plus, Search, X, HardDrive, ClockIcon, CheckCircle, PlayCircle, DoorClosed } from "lucide-react"
 import { db } from "@/lib/firebase" // Import Firestore instance
-import { collection, addDoc, setDoc, doc, getDocs, query, where, getDoc } from "firebase/firestore" // Import Firestore methods
+import { collection, addDoc, setDoc, doc, getDocs, query, where, getDoc, onSnapshot } from "firebase/firestore" // Import Firestore methods
 import { getAuth } from "firebase/auth" // Import Firebase Auth
 import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
@@ -84,39 +84,46 @@ export default function WorkspacePage() {
       if (!user) return;
       try {
         const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
-        const userDoc = await getDoc(userDocRef);
+        
+        // Set up real-time listener for the user's workspaces
+        const unsubscribe = onSnapshot(userDocRef, async (userDoc) => {
+          if (userDoc.exists()) {
+            const { workspaces: workspaceIds } = userDoc.data();
 
-        if (userDoc.exists()) {
-          const { workspaces: workspaceIds } = userDoc.data();
-
-          if (workspaceIds && workspaceIds.length > 0) {
-            // Fetch workspace details and filter out deleted workspaces
-            const fetchedWorkspaces = await Promise.all(
-              workspaceIds.map(async (workspaceId: string) => {
-                const workspaceDocRef = doc(db, "workspaces", workspaceId);
-                const workspaceDoc = await getDoc(workspaceDocRef);
-                return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
-              })
-            );
-            // Filter out null values (deleted workspaces) and update user's workspace list
-            const validWorkspaces = fetchedWorkspaces.filter(Boolean);
-            
-            // Update the user's workspace list if there were deleted workspaces
-            if (validWorkspaces.length !== workspaceIds.length) {
-              await setDoc(
-                userDocRef,
-                { 
-                  workspaces: validWorkspaces.map(workspace => workspace.id)
-                },
-                { merge: true }
+            if (workspaceIds && workspaceIds.length > 0) {
+              // Fetch workspace details and filter out deleted workspaces
+              const fetchedWorkspaces = await Promise.all(
+                workspaceIds.map(async (workspaceId: string) => {
+                  const workspaceDocRef = doc(db, "workspaces", workspaceId);
+                  const workspaceDoc = await getDoc(workspaceDocRef);
+                  return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
+                })
               );
-            }
+              
+              // Filter out null values (deleted workspaces) and update user's workspace list
+              const validWorkspaces = fetchedWorkspaces.filter(Boolean);
+              
+              // Update the user's workspace list if there were deleted workspaces
+              if (validWorkspaces.length !== workspaceIds.length) {
+                await setDoc(
+                  userDocRef,
+                  { 
+                    workspaces: validWorkspaces.map(workspace => workspace.id)
+                  },
+                  { merge: true }
+                );
+              }
 
-            setWorkspaces(validWorkspaces);
+              setWorkspaces(validWorkspaces);
+            } else {
+              setWorkspaces([]);
+            }
           }
-        }
+        });
+
+        return () => unsubscribe();
       } catch (error) {
-        console.error("Error fetching workspaces:", error);
+        console.error("Error setting up workspace listener:", error);
       }
     };
 
@@ -151,6 +158,7 @@ export default function WorkspacePage() {
         size: 0,
         members: [userEmail, ...teamMembers.map(member => member.email)],
         projects: [], // Initialize empty projects array
+        numMembers: 1 + teamMembers.length, // Add number of members
       }
 
       // Add workspace to Firestore
@@ -182,7 +190,7 @@ export default function WorkspacePage() {
       setWorkspaces([{ 
         ...newWorkspace, 
         id: docRef.id,
-        members: newWorkspace.members.length
+        members: newWorkspace.members // Keep the members array
       }, ...workspaces]);
 
       // Reset form

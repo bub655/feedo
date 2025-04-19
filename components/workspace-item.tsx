@@ -56,6 +56,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
   useEffect(() => {
     const fetchProjects = async () => {
       try {
+        console.log("workspaceMemebers", workspace.members)
         const workspaceRef = doc(db, "workspaces", workspace.id)
         const workspaceDoc = await getDoc(workspaceRef)
 
@@ -168,7 +169,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                {workspace.members.length} members
+                {workspace.members?.length || 0} members
               </span>
               <span className="flex items-center gap-1">
                 <Video className="h-4 w-4" />
