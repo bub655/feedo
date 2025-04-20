@@ -218,6 +218,12 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
                 e.stopPropagation()
                 fileInputRef.current?.click()
               }}
+              onMouseEnter={() => {
+                document.body.style.cursor = 'pointer'
+              }}
+              onMouseLeave={() => {
+                document.body.style.cursor = 'default'
+              }}
             >
               {selectedFile ? (
                 <div className="space-y-2">
