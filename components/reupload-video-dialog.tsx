@@ -206,8 +206,7 @@ export default function ReuploadVideoDialog({
       console.log("workspace data", workspaceData)
       await updateDoc(workspaceRef, {
         projects: workspaceData.projects,
-        size: workspaceData.projects[projectIndex].size,
-        videos: workspaceData.projects[projectIndex].numVersions
+        size: workspaceData.projects[projectIndex].size + newVersion.videoSize,
       })
       console.log("workspace data updated")
       // await updateDoc(projectRef, {
