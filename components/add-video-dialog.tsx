@@ -91,32 +91,47 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     setIsUploading(true)
 
     try {
-      console.log("Starting upload process...")
-      console.log("File details:", {
-        name: selectedFile.name,
-        size: selectedFile.size,
-        type: selectedFile.type
+      // Get presigned URL from API
+      const response = await fetch('/api/upload/presign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          contentType: selectedFile.type,
+        }),
       })
 
-      // generate video thumbnail
+      if (!response.ok) {
+        throw new Error('Failed to get upload URL')
+      }
+
+      const { url, fields, key, cdnUrl } = await response.json()
+
+      // Create form data with presigned fields
+      const formData = new FormData()
+      Object.entries(fields).forEach(([key, value]) => {
+        formData.append(key, value as string)
+      })
+      formData.append('file', selectedFile)
+
+      // Upload to S3 using presigned URL
+      const uploadResponse = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed')
+      }
+
+      console.log("key: ", key)
+      // Generate thumbnail and get duration
       const thumbnail = await generateVideoThumbnail(selectedFile)
-      console.log("Video thumbnail")
-
-      // Get video duration
       const duration = await getVideoDurationInSeconds(selectedFile)
-      console.log("Video duration:", duration)
-
-      // Upload file using storage service
-      console.log("Uploading file to server...")
-      const { url, filename } = await storageService.uploadFile(selectedFile)
-      console.log("File uploaded successfully:", { url, filename })
 
       const now = new Date()
-      // Create video data object
-      // local
-      const videoUrl = "dev/" + filename
-      // prod
-      // const videoUrl = "prod/" + filename
       const videoData = {
         annotations: [],
         client: workspaceName,
@@ -131,13 +146,10 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         videoDuration: duration,
         videoSize: selectedFile.size,
         videoType: selectedFile.type,
-        videoUrl: videoUrl,
+        videoUrl: key,
       }
 
-      // Log to console
-      console.log("Saving video data to Firestore:", videoData)
-
-      // Add to Firestore with document ID of videoData.id
+      // Add to Firestore
       const docRef = doc(db, "projects", videoData.id)
       await setDoc(docRef, videoData)
       console.log("Document written with ID:", docRef.id)
@@ -145,14 +157,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
 
       // Pass the video data to the parent component with the correct document ID
       onVideoAdded({...videoData, thumbnail: thumbnail})
-
-      // Reset form
-      setTitle("")
-      setDueDate("")
-      setSelectedFile(null)
-      setIsUploading(false)
-      setUploadProgress(0)
-      setIsOpen(false)
+      resetForm()
     } catch (error) {
       console.error("Error uploading video:", error)
       setIsUploading(false)
@@ -166,6 +171,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     setSelectedFile(null)
     setIsUploading(false)
     setUploadProgress(0)
+    setIsOpen(false)
   }
 
   return (

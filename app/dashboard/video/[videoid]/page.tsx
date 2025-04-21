@@ -13,5 +13,5 @@ interface VideoPageProps {
 
 export default function VideoPage({ params }: VideoPageProps) {
   const resolvedParams = use(params)
-  return <VideoPageClient videoId={resolvedParams.videoid} />
+  return <VideoPageClient projectId={resolvedParams.videoid} />
 }
