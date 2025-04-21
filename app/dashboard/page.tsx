@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Building, Filter, Plus, Search, X, HardDrive, ClockIcon, CheckCircle, PlayCircle, DoorClosed } from "lucide-react"
 import { db } from "@/lib/firebase" // Import Firestore instance
-import { collection, addDoc, setDoc, doc, getDocs, query, where, getDoc, onSnapshot } from "firebase/firestore" // Import Firestore methods
+import { collection, addDoc, setDoc, doc, getDocs, query, where, getDoc } from "firebase/firestore" // Import Firestore methods
 import { getAuth } from "firebase/auth" // Import Firebase Auth
 import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
@@ -22,42 +22,6 @@ import {
 import DashboardNavbar from "@/components/dashboard-navbar"
 import WorkspaceItem from "@/components/workspace-item"
 import { Progress } from "@/components/ui/progress"
-
-interface ProjectVersion {
-  id: string
-  title: string
-  videoUrl: string
-  thumbnail: string
-  status: string
-  progress: number
-  createdAt: string
-  updatedAt: string
-  comments: any[]
-  annotations: any[]
-  version: number
-  videoSize?: number
-  videoDuration?: number
-}
-
-interface Project {
-  id: string
-  name: string
-  description?: string
-  versions: ProjectVersion[]
-  currentVersion: number
-  createdAt: string
-  updatedAt: string
-}
-
-interface Workspace {
-  id: string
-  name: string
-  members: string[]
-  projects: Project[]
-  description?: string
-  createdAt?: string
-  updatedAt?: string
-}
 
 export default function WorkspacePage() {
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
@@ -84,46 +48,39 @@ export default function WorkspacePage() {
       if (!user) return;
       try {
         const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
-        
-        // Set up real-time listener for the user's workspaces
-        const unsubscribe = onSnapshot(userDocRef, async (userDoc) => {
-          if (userDoc.exists()) {
-            const { workspaces: workspaceIds } = userDoc.data();
+        const userDoc = await getDoc(userDocRef);
 
-            if (workspaceIds && workspaceIds.length > 0) {
-              // Fetch workspace details and filter out deleted workspaces
-              const fetchedWorkspaces = await Promise.all(
-                workspaceIds.map(async (workspaceId: string) => {
-                  const workspaceDocRef = doc(db, "workspaces", workspaceId);
-                  const workspaceDoc = await getDoc(workspaceDocRef);
-                  return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
-                })
+        if (userDoc.exists()) {
+          const { workspaces: workspaceIds } = userDoc.data();
+
+          if (workspaceIds && workspaceIds.length > 0) {
+            // Fetch workspace details and filter out deleted workspaces
+            const fetchedWorkspaces = await Promise.all(
+              workspaceIds.map(async (workspaceId: string) => {
+                const workspaceDocRef = doc(db, "workspaces", workspaceId);
+                const workspaceDoc = await getDoc(workspaceDocRef);
+                return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
+              })
+            );
+            // Filter out null values (deleted workspaces) and update user's workspace list
+            const validWorkspaces = fetchedWorkspaces.filter(Boolean);
+            
+            // Update the user's workspace list if there were deleted workspaces
+            if (validWorkspaces.length !== workspaceIds.length) {
+              await setDoc(
+                userDocRef,
+                { 
+                  workspaces: validWorkspaces.map(workspace => workspace.id)
+                },
+                { merge: true }
               );
-              
-              // Filter out null values (deleted workspaces) and update user's workspace list
-              const validWorkspaces = fetchedWorkspaces.filter(Boolean);
-              
-              // Update the user's workspace list if there were deleted workspaces
-              if (validWorkspaces.length !== workspaceIds.length) {
-                await setDoc(
-                  userDocRef,
-                  { 
-                    workspaces: validWorkspaces.map(workspace => workspace.id)
-                  },
-                  { merge: true }
-                );
-              }
-
-              setWorkspaces(validWorkspaces);
-            } else {
-              setWorkspaces([]);
             }
-          }
-        });
 
-        return () => unsubscribe();
+            setWorkspaces(validWorkspaces);
+          }
+        }
       } catch (error) {
-        console.error("Error setting up workspace listener:", error);
+        console.error("Error fetching workspaces:", error);
       }
     };
 
@@ -131,7 +88,7 @@ export default function WorkspacePage() {
   }, [user]);
 
   const handleAddTeamMember = () => {
-    if (newTeamMember && !teamMembers.some((member) => member.email === newTeamMember && newTeamMember !== user?.primaryEmailAddress?.emailAddress)) {
+    if (newTeamMember && !teamMembers.some((member) => member.email === newTeamMember)) {
       setTeamMembers([...teamMembers, { email: newTeamMember, permission: newTeamMemberPermission }])
       setNewTeamMember("")
       setNewTeamMemberPermission("viewer") // Reset to default
@@ -148,57 +105,62 @@ export default function WorkspacePage() {
 
   const handleCreateWorkspace = async () => {
     if (!newWorkspaceName.trim() || !user) return;
-    
+    teamMembers.push({ email: user.primaryEmailAddress?.emailAddress || user.id, permission: "owner" });
     try {
-      const userEmail = user.primaryEmailAddress?.emailAddress || user.id;
       const newWorkspace = {
         createdAt: new Date().toISOString(),
         name: newWorkspaceName,
-        description: newWorkspaceDescription || "",
-        size: 0,
-        members: [userEmail, ...teamMembers.map(member => member.email)],
-        projects: [], // Initialize empty projects array
-        numMembers: 1 + teamMembers.length, // Add number of members
+        description: newWorkspaceDescription,
+        collaborators: teamMembers,
+        projects: [],
       }
-
+  
       // Add workspace to Firestore
       const docRef = await addDoc(collection(db, "workspaces"), newWorkspace);
-
-      // Update each member's workspaces array
-      for (const memberEmail of newWorkspace.members) {
-        const userDocRef = doc(db, "UID", memberEmail);
+  
+      for (const collaborator of teamMembers) {
+        // Get user's email
+        console.log(collaborator);
+        const userEmail = collaborator["email"];
+        console.log(userEmail);
+    
+        // Try to get existing user document
+        const userDocRef = doc(db, "UID", userEmail);
         const userDoc = await getDoc(userDocRef);
-
+    
         if (userDoc.exists()) {
+          // User exists, update their workspaces array
           const existingWorkspaces = userDoc.data()?.workspaces || [];
           await setDoc(
             userDocRef,
             { 
               workspaces: [docRef.id, ...existingWorkspaces],
-              email: memberEmail
+              email: userEmail
             }
           );
         } else {
+          // User doesn't exist, create new document
           await setDoc(userDocRef, {
-            email: memberEmail,
+            email: userEmail,
             workspaces: [docRef.id]
           });
         }
       }
-
+  
       // Update local state
       setWorkspaces([{ 
         ...newWorkspace, 
         id: docRef.id,
-        members: newWorkspace.members // Keep the members array
+        members: teamMembers.length, 
+        videos: 0 
       }, ...workspaces]);
-
+  
       // Reset form
       setNewWorkspaceName("");
       setNewWorkspaceDescription("");
       setTeamMembers([]);
       setIsCreateWorkspaceOpen(false);
-
+  
     } catch (error) {
       console.error("Error creating workspace:", error);
     }
@@ -256,7 +218,7 @@ export default function WorkspacePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Invite Team Members</label>
+                  <label className="text-sm font-medium">Invite Team Members (up to 5)</label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="Enter email address"

@@ -1,49 +1,53 @@
-import { NextResponse } from 'next/server'
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
-import { v4 as uuidv4 } from 'uuid'
-import { auth } from '@clerk/nextjs/server'
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-})
+import { NextResponse } from "next/server"
+import { writeFile, mkdir } from "fs/promises"
+import { join } from "path"
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const formData = await request.formData()
-    const file = formData.get('file') as File
+    const file = formData.get("file") as File
+    
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return NextResponse.json(
+        { error: "No file uploaded" },
+        { status: 400 }
+      )
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const fileExtension = file.name.split('.').pop()
-    const key = `prod/${file.name.split('.')[0]}-${uuidv4()}.${fileExtension}`
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
-    const command = new PutObjectCommand({
-      Bucket: process.env.AWS_BUCKET_NAME!,
-      Key: key,
-      Body: buffer,
-      ContentType: file.type,
-    })
+    // Create videos directory if it doesn't exist
+    const videosDir = join(process.cwd(), "public", "videos")
+    try {
+      await mkdir(videosDir, { recursive: true })
+    } catch (error) {
+      console.error("Error creating videos directory:", error)
+      return NextResponse.json(
+        { error: "Error creating videos directory" },
+        { status: 500 }
+      )
+    }
 
-    await s3Client.send(command)
-    
+    // Create unique filename
+    const timestamp = Date.now()
+    const filename = `${timestamp}-${file.name}`
+    const path = join(videosDir, filename)
+
+    // Save file
+    await writeFile(path, buffer)
+
+    // Return the public URL
     return NextResponse.json({ 
-      success: true, 
-      key,
-      url: `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${key}`
+      success: true,
+      url: `/videos/${filename}`,
+      filename
     })
   } catch (error) {
-    console.error('Error uploading to S3:', error)
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+    console.error("Error uploading file:", error)
+    return NextResponse.json(
+      { error: "Error uploading file" },
+      { status: 500 }
+    )
   }
 } 

@@ -7,21 +7,14 @@ import { Slider } from "@/components/ui/slider"
 
 interface VideoPlayerProps {
   videoUrl: string
-  thumbnailUrl: string
+  thumbnailUrl?: string
   onTimeUpdate?: (time: number) => void
   onPlay?: () => void
   onPause?: () => void
   seekTo?: number
 }
 
-export default function VideoPlayer({ 
-  videoUrl, 
-  thumbnailUrl, 
-  onTimeUpdate, 
-  onPlay, 
-  onPause,
-  seekTo 
-}: VideoPlayerProps) {
+export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPlay, onPause, seekTo }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -44,84 +37,75 @@ export default function VideoPlayer({
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration)
-      setIsLoading(false)
+      // Set the video to the first frame
+      video.currentTime = 0
+    }
+
+    const handleEnded = () => {
+      setIsPlaying(false)
     }
 
     const handleError = (e: Event) => {
-      const videoError = video.error
-      let errorMessage = 'Failed to load video'
-      if (videoError) {
-        switch (videoError.code) {
-          case 1:
-            errorMessage = 'Video loading aborted'
-            break
-          case 2:
-            errorMessage = 'Network error while loading video'
-            break
-          case 3:
-            errorMessage = 'Error decoding video'
-            break
-          case 4:
-            errorMessage = 'Video not supported'
-            break
-        }
-      }
-      console.error('Video error:', videoError)
-      setError(errorMessage)
-      setIsLoading(false)
+      console.error("Video error:", e)
+      setError("Error loading video. Please try again.")
     }
 
-    const handlePlay = () => {
-      setIsPlaying(true)
-      onPlay?.()
-    }
-
-    const handlePause = () => {
-      setIsPlaying(false)
-      onPause?.()
-    }
-
-    video.addEventListener('timeupdate', handleTimeUpdate)
-    video.addEventListener('loadedmetadata', handleLoadedMetadata)
-    video.addEventListener('error', handleError)
-    video.addEventListener('play', handlePlay)
-    video.addEventListener('pause', handlePause)
+    video.addEventListener("timeupdate", handleTimeUpdate)
+    video.addEventListener("loadedmetadata", handleLoadedMetadata)
+    video.addEventListener("ended", handleEnded)
+    video.addEventListener("error", handleError)
 
     return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate)
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      video.removeEventListener('error', handleError)
-      video.removeEventListener('play', handlePlay)
-      video.removeEventListener('pause', handlePause)
+      video.removeEventListener("timeupdate", handleTimeUpdate)
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata)
+      video.removeEventListener("ended", handleEnded)
+      video.removeEventListener("error", handleError)
     }
-  }, [onTimeUpdate, onPlay, onPause])
+  }, [videoUrl, onTimeUpdate])
 
   useEffect(() => {
-    if (seekTo !== undefined && videoRef.current) {
+    if (videoRef.current && seekTo !== undefined) {
       videoRef.current.currentTime = seekTo
     }
   }, [seekTo])
 
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
-  }
+  const togglePlay = async () => {
+    const video = videoRef.current
+    if (!video) return
 
-  const handleSeek = (value: number[]) => {
-    const time = value[0]
-    if (videoRef.current) {
-      videoRef.current.currentTime = time
+    try {
+      if (isPlaying) {
+        video.pause()
+        setIsPlaying(false)
+        onPause?.()
+      } else {
+        await video.play()
+        setIsPlaying(true)
+        onPlay?.()
+      }
+    } catch (error) {
+      console.error("Playback error:", error)
+      setIsPlaying(false)
     }
   }
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause()
-      } else {
-        videoRef.current.play()
-      }
+  const handleSeek = (value: number[]) => {
+    const video = videoRef.current
+    if (!video) return
+
+    const wasPlaying = !video.paused
+    if (wasPlaying) {
+      video.pause()
+    }
+
+    video.currentTime = value[0]
+    setCurrentTime(value[0])
+
+    if (wasPlaying) {
+      video.play().catch((error) => {
+        console.error("Error resuming playback:", error)
+        setIsPlaying(false)
+      })
     }
   }
 
@@ -171,6 +155,12 @@ export default function VideoPlayer({
     setIsFullscreen(!isFullscreen)
   }
 
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60)
+    const seconds = Math.floor(time % 60)
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+  }
+
   const skipBackward = () => {
     const video = videoRef.current
     if (!video) return
@@ -215,11 +205,6 @@ export default function VideoPlayer({
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent"></div>
-        </div>
-      )}
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center text-white">
           <p>{error}</p>
