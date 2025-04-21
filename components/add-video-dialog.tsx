@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { Plus, Upload, X } from "lucide-react"
+import { v4 as uuidv4 } from 'uuid'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -16,16 +17,16 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
-import { collection, addDoc } from "firebase/firestore"
+import { collection, addDoc, doc, setDoc } from "firebase/firestore"
 import { storageService } from "@/lib/storage"
 
 interface AddVideoDialogProps {
-  workspaceName: string
+  workspaceId: string
   buttonText?: string
   onVideoAdded: (videoData: any) => void
 }
 
-export default function AddVideoDialog({ workspaceName, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
+export default function AddVideoDialog({ workspaceId, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -33,6 +34,39 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const generateVideoThumbnail = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.onloadeddata = () => {
+        video.currentTime = 1
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            resolve(canvas.toDataURL('image/jpeg'))
+          }
+        }
+      }
+      video.src = URL.createObjectURL(file)
+    })
+  }
+
+  const getVideoDurationInSeconds = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src)
+        resolve(video.duration)
+      }
+      video.src = URL.createObjectURL(file)
+    })
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -64,38 +98,54 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         type: selectedFile.type
       })
 
+      // generate video thumbnail
+      const thumbnail = await generateVideoThumbnail(selectedFile)
+      console.log("Video thumbnail")
+
+      // Get video duration
+      const duration = await getVideoDurationInSeconds(selectedFile)
+      console.log("Video duration:", duration)
+
       // Upload file using storage service
       console.log("Uploading file to server...")
       const { url, filename } = await storageService.uploadFile(selectedFile)
       console.log("File uploaded successfully:", { url, filename })
 
+      const now = new Date()
       // Create video data object
       const videoData = {
-        title,
-        dueDate,
-        videoPath: url,
-        filename,
-        metadata: {
-          size: selectedFile.size,
-          type: selectedFile.type,
-          lastModified: selectedFile.lastModified,
-        },
+        annotations: [],
+        client: "prod",
         comments: [],
+        createdAt: now,
+        dueDate: dueDate,
+        id: uuidv4(),
+        progress: 0,
+        status: "in progress",
+        thumbnail: thumbnail,
+        title: title,
+        updatedAt: now,
+        videoDuration: duration,
+        videoSize: selectedFile.size,
+        videoType: selectedFile.type,
+        videoUrl: "prod/" + filename,
       }
 
       // Log to console
       console.log("Saving video data to Firestore:", videoData)
 
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, "projects"), videoData)
+      // Add to Firestore with document ID of videoData.id
+      const docRef = doc(db, "projects", videoData.id)
+      await setDoc(docRef, videoData)
       console.log("Document written with ID:", docRef.id)
+      
 
       // Pass the video data to the parent component with the correct document ID
       onVideoAdded({
         ...videoData,
-        id: docRef.id, // Use the actual Firestore document ID
-        videoUrl: url,
-        thumbnail: "/placeholder.svg?height=150&width=250",
+        id: videoData.id, // Use the actual Firestore document ID
+        videoUrl: "prod/" + filename,
+        thumbnail: thumbnail,
       })
 
       // Reset form
@@ -137,7 +187,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add new video</DialogTitle>
-          <DialogDescription>Upload a video to the {workspaceName} workspace</DialogDescription>
+          <DialogDescription>Upload a video to the workspace</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">

@@ -112,6 +112,9 @@ export default function WorkspacePage() {
         name: newWorkspaceName,
         description: newWorkspaceDescription,
         collaborators: teamMembers,
+        size: 0,
+        numMembers: teamMembers.length,
+        videos: 0,
         projects: [],
       }
   
