@@ -23,7 +23,9 @@ import {
   Calendar,
   Users,
   CheckCircle,
+  Upload,
 } from "lucide-react"
+import { useParams } from 'next/navigation'
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -33,6 +35,8 @@ import VideoComment from "@/components/video-comment"
 import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import AnnotationCanvas from "@/components/annotation-canvas"
+import AddVideoDialog from "@/components/add-video-dialog"
+import ReuploadVideoDialog from "@/components/reupload-video-dialog"
 
 interface VideoPageClientProps {
   projectId: string
@@ -89,6 +93,9 @@ interface Resolver {
 
 export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const { user } = useUser()
+  const params = useParams()
+  const workspaceId = params.workspaceId as string || new URLSearchParams(window.location.search).get('workspaceId') || ''
+  console.log("workspaceId: ", workspaceId)
   const [project, setProject] = useState<Project | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [annotations, setAnnotations] = useState<Annotation[]>([])
@@ -99,6 +106,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined)
+  const [isReuploadDialogOpen, setIsReuploadDialogOpen] = useState(false)
 
   // Add useEffect to log project changes
   useEffect(() => {
@@ -400,9 +408,14 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{project.title}</h1>
               <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Users className="h-4 w-4" />
-                Invite
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={() => setIsReuploadDialogOpen(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Reupload
               </Button>
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <Share2 className="h-4 w-4" />
@@ -614,6 +627,13 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
           </div>
         </div>
       </div>
+      <ReuploadVideoDialog
+        isOpen={isReuploadDialogOpen}
+        onClose={() => setIsReuploadDialogOpen(false)}
+        projectId={projectId}
+        currentVersion={project}
+        workspaceId={workspaceId}
+      />
     </div>
   )
 } 

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { Upload, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, arrayUnion, serverTimestamp, setDoc, getDoc } from "firebase/firestore"
+import { doc, updateDoc, arrayUnion, setDoc, getDoc } from "firebase/firestore"
+import { v4 as uuidv4 } from 'uuid'
 
 import { Button } from "@/components/ui/button"
 import {
@@ -73,8 +74,10 @@ export default function ReuploadVideoDialog({
 
     try {
       // Calculate video duration
+      console.log("file: ", file)
       const duration = await getVideoDurationInSeconds(file)
-      
+      console.log("duration: ", duration)
+
       // Generate thumbnail
       const video = document.createElement('video')
       video.preload = 'metadata'
@@ -97,45 +100,69 @@ export default function ReuploadVideoDialog({
 
       const thumbnail = await thumbnailPromise
       URL.revokeObjectURL(video.src)
+      console.log("thumbnailPromise")
 
-      const fileExtension = file.name.split('.').pop()
-      const fileName = `${projectId}-${Date.now()}.${fileExtension}`
 
+      // Get presigned URL from API
+      const response = await fetch('/api/upload/presign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get upload URL')
+      }
+
+      const { url, fields, key, cdnUrl } = await response.json()
+
+      console.log("url: ", url)
+      console.log("fields: ", fields)
+      console.log("key: ", key)
+      console.log("cdnUrl: ", cdnUrl)
+      // Create form data with presigned fields
       const formData = new FormData()
+      Object.entries(fields).forEach(([key, value]) => {
+        formData.append(key, value as string)
+      })
       formData.append('file', file)
-      formData.append('fileName', fileName)
 
-      const response = await fetch('/api/upload', {
+      // Upload to S3 using presigned URL
+      const uploadResponse = await fetch(url, {
         method: 'POST',
         body: formData,
       })
 
-      if (!response.ok) throw new Error('Failed to upload video')
-      const { url } = await response.json()
-      //only get the path from the url
-      const urlPath = new URL(url).pathname
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed')
+      }
 
-      // remove the '/' from the start of the url path
-      const urlPathWithoutSlash = urlPath.startsWith('/') ? urlPath.slice(1) : urlPath
-      console.log("url path", urlPathWithoutSlash)
+      console.log("key: ", key)
+
+
       // const projectRef = doc(db, "projects", projectId)
-
+      const now = new Date()
       const newVersion = {
-        id: crypto.randomUUID(),
-        title: currentVersion.title,
-        status: currentVersion.progress,
-        videoUrl: urlPathWithoutSlash,
-        thumbnail: thumbnail,
-        client: currentVersion.client,
-        progress: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        comments: [],
         annotations: [],
+        client: currentVersion.client,
+        comments: [],
+        createdAt: now,
+        dueDate: currentVersion.dueDate,
+        id: uuidv4(),
+        progress: 0,
+        status: "in progress",
+        thumbnail: thumbnail,
+        title: currentVersion.title,
+        updatedAt: now,
+        videoDuration: duration,
         videoSize: file.size,
         videoType: file.type,
-        videoDuration: duration,
-        dueDate: currentVersion.dueDate,
+        videoUrl: key,
 
       }
 
@@ -162,22 +189,25 @@ export default function ReuploadVideoDialog({
         }
         foundProjectIndex++
       }
+      console.log("foundProjectIndex: ", foundProjectIndex)
 
       const projectIndex = foundProjectIndex - 1
-      console.log("project index", projectIndex)
       workspaceData.projects[projectIndex].versions.push({
         id: newVersion.id,
-        status: newVersion.progress,
         videoUrl: newVersion.videoUrl,
         thumbnail: newVersion.thumbnail,
         videoType: newVersion.videoType,
         version: workspaceData.projects[projectIndex].versions.reduce((max: number, version: any) => Math.max(max, version.version), 0) + 1,
         videoSize: newVersion.videoSize,
       })
-      console.log("workspace data updated")
+      workspaceData.projects[projectIndex].size = workspaceData.projects[projectIndex].size + newVersion.videoSize
+      workspaceData.projects[projectIndex].updatedAt = now
+      workspaceData.projects[projectIndex].numVersions = workspaceData.projects[projectIndex].versions.length
       console.log("workspace data", workspaceData)
       await updateDoc(workspaceRef, {
-        projects: workspaceData.projects
+        projects: workspaceData.projects,
+        size: workspaceData.projects[projectIndex].size,
+        videos: workspaceData.projects[projectIndex].numVersions
       })
       console.log("workspace data updated")
       // await updateDoc(projectRef, {
