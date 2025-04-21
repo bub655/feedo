@@ -340,6 +340,26 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     }
   }
 
+  const handleDownload = async () => {
+    if (!project?.videoUrl) return
+
+    try {
+      const videoUrl = `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${project.videoUrl}`
+      const response = await fetch(videoUrl)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = project.title || 'video'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading video:', error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -423,7 +443,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   <p className="text-sm text-gray-500">Last updated: {new Date(project.updatedAt).toLocaleDateString()}</p>
                   </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1.5"
+                    onClick={handleDownload}
+                  >
                     <Download className="h-4 w-4" />
                     Download
                   </Button>

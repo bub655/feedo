@@ -82,7 +82,8 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
       console.log("workspaceRef", workspaceId)
       await updateDoc(workspaceRef, {
         projects: [workspaceProject, ...(workspace.projects || [])],
-        videos: (workspace.videos || 0) + 1
+        videos: (workspace.videos || 0) + 1,
+        size: (workspace.size || 0) + videoData.videoSize
       })
       console.log("workspace updated")
       // Update local state
