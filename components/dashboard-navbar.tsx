@@ -1,4 +1,6 @@
+import type { ReactElement } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Bell, HelpCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -27,7 +29,7 @@ export default function DashboardNavbar() {
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-white">
-              <span className="text-lg font-bold">F</span>
+              <Image src="/feedo-logo.jpeg" alt="Feedo Logo" width={32} height={32} />
             </div>
             <span className="text-lg font-medium text-gray-800">feedo</span>
           </Link>

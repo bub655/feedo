@@ -51,10 +51,8 @@ export async function uploadToS3Multipart(
   try {
     const fileExtension = file.name.split('.').pop()
 
-    // local
-    const key = `dev/${file.name.split('.')[0]}-${uuidv4()}.${fileExtension}`
-    // prod
-    // const key = `prod/${file.name.split('.')[0]}-${uuidv4()}.${fileExtension}`
+
+    const key = `${process.env.ENVIRONMENT}/${file.name.split('.')[0]}-${uuidv4()}.${fileExtension}`
     
     // Create multipart upload
     const createMultipartUpload = await s3Client.send(

@@ -9,9 +9,14 @@ import {
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Feedo - Video collaboration simplified",
+  title: "Feedo",
   description:
     "Simplify video feedback with timeline-linked comments, intuitive tools, and a beautiful interface designed for non-techy clients.",
+  icons: {
+    icon: '/feedo-logo.ico',
+    shortcut: '/feedo-logo.ico',
+    apple: '/feedo-logo.ico',
+  },
 }
 
 export default function RootLayout({

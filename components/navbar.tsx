@@ -8,14 +8,14 @@ import {
   SignedOut,
   UserButton,
 } from '@clerk/nextjs'
-
+import Image from "next/image"
 export default function Navbar() {
   return (
     <header className="border-b border-gray-100 bg-white">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-sky-500 text-white">
-            <span className="text-xl font-bold">F</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-md text-white">
+            <Image src="/feedo-logo.jpeg" alt="Feedo Logo" width={32} height={32} />
           </div>
           <span className="text-xl font-medium text-gray-800">feedo</span>
         </div>
