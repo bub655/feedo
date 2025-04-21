@@ -14,62 +14,44 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { db } from "@/lib/firebase"
-import { doc, updateDoc } from "firebase/firestore"
-
-interface ProjectVersion {
-  id: string,
-  videoUrl: string,
-  thumbnail: string,
-  version: number,
-  videoSize: number,
-  videoType: string,
-}
-
-interface Project {
-  title: string,
-  numVersions: number,
-  status: string,
-  progress: number,
-  createdAt: string,
-  updatedAt: string,
-  dueDate: string,
-  versions: ProjectVersion[],
-  size: number,
-}
 
 interface ProjectCardProps {
-  project: Project
+  project: {
+    id: string
+    title: string
+    thumbnail: string
+    status?: string
+    dueDate?: string
+    client?: string
+    type?: string
+    videoUrl?: string | null
+  },
   workspaceId: string
-  versionHistory: ProjectVersion[]
 }
 
-export default function ProjectCard({ project, workspaceId, versionHistory }: ProjectCardProps) {
-  const currentVersion = project.versions[project.versions.length - 1]
-  const [status, setStatus] = useState(project.status || "processing")
+export default function ProjectCard({ project, workspaceId }: ProjectCardProps) {
+  const [status, setStatus] = useState(project.status)
   const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
-  const [isLoading, setIsLoading] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    if (!currentVersion?.videoUrl) {
+    if (!project.videoUrl) {
       console.log('No video URL provided')
-      setIsLoading(false)
       return
     }
 
     const video = videoRef.current
-    console.log('project.videoUrl', currentVersion.videoUrl)
-
     if (!video) {
       console.log('Video ref not available')
-      setIsLoading(false)
       return
     }
 
     const captureFrame = () => {
       try {
         console.log('Attempting to capture frame...')
+        // Seek to 1 second into the video
+        video.currentTime = 1.0
+        
         // Create canvas with video dimensions
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth || 640
@@ -78,7 +60,6 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
         const ctx = canvas.getContext('2d')
         if (!ctx) {
           console.log('Could not get canvas context')
-          setIsLoading(false)
           return
         }
 
@@ -89,16 +70,9 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
         const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8)
         console.log('Successfully captured frame')
         setThumbnailSrc(thumbnailUrl)
-        setIsLoading(false)
       } catch (error) {
         console.error('Error capturing video frame:', error)
-        setIsLoading(false)
       }
-    }
-
-    const handleLoadedData = () => {
-      console.log('Video data loaded')
-      video.currentTime = 1.0
     }
 
     const handleTimeUpdate = () => {
@@ -109,15 +83,21 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
       }
     }
 
-    video.addEventListener('loadeddata', handleLoadedData)
-    video.addEventListener('timeupdate', handleTimeUpdate)
+    const handleLoadedMetadata = () => {
+      console.log('Video metadata loaded')
+      video.addEventListener('timeupdate', handleTimeUpdate)
+      video.currentTime = 1.0
+    }
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata)
     video.load()
 
     return () => {
-      video.removeEventListener('loadeddata', handleLoadedData)
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
       video.removeEventListener('timeupdate', handleTimeUpdate)
     }
-  }, [currentVersion?.videoUrl])
+  }, [project.videoUrl])
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "In Progress":
@@ -135,12 +115,6 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
     }
   }
 
-  const changeStatus = (status: string) => {
-    setStatus(status)
-    // update status in firestore workspace collection for the given project
-
-  }
-
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
@@ -153,23 +127,17 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
           muted
           crossOrigin="anonymous"
         >
-          <source src={currentVersion?.videoUrl ? `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${currentVersion.videoUrl}` : ''} type={currentVersion?.videoType} />
+          <source src={project.videoUrl || ''} type="video/mp4" />
         </video>
 
-        <Link href={`/dashboard/video/${currentVersion.id}?workspaceId=${workspaceId}`}>
-          {isLoading ? (
-            <div className="h-36 w-full animate-pulse bg-gray-200 flex items-center justify-center">
-              <div className="text-gray-400">Loading thumbnail...</div>
-            </div>
-          ) : (
-            <Image
-              src={thumbnailSrc}
-              alt={project.title || "Untitled Video"}
-              width={250}
-              height={150}
-              className="h-36 w-full object-cover"
-            />
-          )}
+        <Link href={`/dashboard/video/${project.id}`}>
+          <Image
+            src={thumbnailSrc}
+            alt={project.title}
+            width={250}
+            height={150}
+            className="h-36 w-full object-cover"
+          />
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-sky-600">
               <Play className="h-6 w-6" />
@@ -180,7 +148,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
 
       <div className="p-4">
         <div className="flex items-start justify-between">
-          <Link href={`/dashboard/video/${currentVersion.id}?workspaceId=${workspaceId}`} className="hover:underline">
+          <Link href={`/dashboard/video/${project.id}`} className="hover:underline">
             <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
@@ -207,13 +175,11 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-
               <SelectItem value="In Progress">In Progress</SelectItem>
               <SelectItem value="Pending Review">Pending Review</SelectItem>
               <SelectItem value="Approved">Approved</SelectItem>
               <SelectItem value="Rejected">Rejected</SelectItem>
               <SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="None">Processing</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -221,11 +187,11 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
         <div className="mt-3 space-y-1.5">
           <div className="flex items-center text-xs text-gray-500">
             <Calendar className="mr-1.5 h-3.5 w-3.5" />
-            Version: {currentVersion?.version || 1}
+            Due: {project.dueDate}
           </div>
           <div className="flex items-center text-xs text-gray-500">
-            <Calendar className="mr-1.5 h-3.5 w-3.5" />
-            Updated: {new Date(project.updatedAt).toLocaleDateString()}
+            <User className="mr-1.5 h-3.5 w-3.5" />
+            Client: {project.client}
           </div>
           <div className="flex items-center text-xs text-gray-500">
             <svg
@@ -244,7 +210,7 @@ export default function ProjectCard({ project, workspaceId, versionHistory }: Pr
               <polyline points="3.29 7 12 12 20.71 7" />
               <line x1="12" x2="12" y1="22" y2="12" />
             </svg>
-            Progress: {project.progress || 0}%
+            Type: {project.type}
           </div>
         </div>
       </div>

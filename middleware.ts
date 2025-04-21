@@ -1,11 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { useUser } from '@clerk/nextjs'
 const isProtectedRoute = createRouteMatcher(['/dashboard(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId, redirectToSignIn } = await auth()
+  // const {isSignedIn, user, isLoaded} = useUser()
   // if user is not authenticated and trying to access protected routes, redirect to signin
-  if (isProtectedRoute(req) && !userId) {
+  if (isProtectedRoute(req) && !auth) {
 
     // redirect to signin page
     const signInUrl = new URL("/signin", req.url)
