@@ -88,7 +88,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
         </div>
 
         <div className="flex items-center gap-2">
-          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />
+          <AddVideoDialog workspaceId={workspace.id} onVideoAdded={handleVideoAdded} />
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (
