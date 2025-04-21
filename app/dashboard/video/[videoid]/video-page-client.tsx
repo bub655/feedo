@@ -476,7 +476,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
               </div>
             </div>
 
-            <div className="flex flex-col">
+            <div className="flex flex-col h-[calc(90vh-5rem)]">
               {/* Timeline Items */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 {[...comments, ...annotations].sort((a, b) => 
@@ -552,14 +552,14 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   </div>
 
               {/* Comment Input */}
-              <div className="border-t border-gray-200 bg-white p-6">
+              <div className="border-t border-gray-200 bg-white p-4">
                 <div className="flex items-start gap-3">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user?.imageUrl} alt={user?.fullName || ''} />
                     <AvatarFallback>{user?.fullName?.[0] || user?.username?.[0] || 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <div className="mb-3 flex items-center gap-2">
+                    <div className="mb-2 flex items-center gap-2">
                       <Badge variant="secondary" className="bg-gray-100">
                         {formatTime(currentTime)}
                       </Badge>
@@ -569,10 +569,10 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                       placeholder="Add a comment..."
                       value={commentInput}
                       onChange={(e) => setCommentInput(e.target.value)}
-                      className="w-full resize-none rounded-lg border border-gray-200 p-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                       rows={3}
                     />
-                    <div className="mt-3 flex justify-end">
+                    <div className="mt-2 flex justify-end">
                       <Button
                         size="sm"
                         className="bg-sky-500 hover:bg-sky-600"
