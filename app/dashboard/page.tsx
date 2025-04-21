@@ -32,6 +32,12 @@ export default function WorkspacePage() {
   const [teamMembers, setTeamMembers] = useState<{ email: string; permission: string }[]>([])
   const [expandedWorkspace, setExpandedWorkspace] = useState<string | null>(null)
   const [workspaces, setWorkspaces] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Add useEffect to log workspaces changes
+  useEffect(() => {
+    console.log("Workspaces updated:", workspaces);
+  }, [workspaces]);
 
   // Storage and stats data
   const storageUsed = 35 // percentage
@@ -46,20 +52,21 @@ export default function WorkspacePage() {
   useEffect(() => {
     const fetchWorkspaces = async () => {
       if (!user) return;
+      setIsLoading(true);
       try {
         const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
           const { workspaces: workspaceIds } = userDoc.data();
-
+          
           if (workspaceIds && workspaceIds.length > 0) {
             // Fetch workspace details and filter out deleted workspaces
             const fetchedWorkspaces = await Promise.all(
               workspaceIds.map(async (workspaceId: string) => {
                 const workspaceDocRef = doc(db, "workspaces", workspaceId);
                 const workspaceDoc = await getDoc(workspaceDocRef);
-                return workspaceDoc.exists() ? { id: workspaceDoc.id, ...workspaceDoc.data() } : null;
+                return workspaceDoc.exists() ? { id: workspaceId, ...workspaceDoc.data() } : null;
               })
             );
             // Filter out null values (deleted workspaces) and update user's workspace list
@@ -75,12 +82,14 @@ export default function WorkspacePage() {
                 { merge: true }
               );
             }
-
+            // Update workspaces state
             setWorkspaces(validWorkspaces);
           }
         }
       } catch (error) {
         console.error("Error fetching workspaces:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -373,12 +382,18 @@ export default function WorkspacePage() {
           </Tabs>
         </div>
 
-        {workspaces.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16 bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Loading workspaces...</h3>
+          </div>
+        ) : workspaces.length > 0 ? (
           <div className="space-y-4">
             {workspaces.map((workspace) => (
               <WorkspaceItem
                 key={workspace.id}
                 workspace={workspace}
+                workspaceId={workspace.id}
                 isExpanded={expandedWorkspace === workspace.id}
                 onToggle={() => toggleWorkspace(workspace.id)}
               />

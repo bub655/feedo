@@ -21,12 +21,12 @@ import { collection, addDoc, doc, setDoc } from "firebase/firestore"
 import { storageService } from "@/lib/storage"
 
 interface AddVideoDialogProps {
-  workspaceId: string
+  workspaceName: string
   buttonText?: string
   onVideoAdded: (videoData: any) => void
 }
 
-export default function AddVideoDialog({ workspaceId, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
+export default function AddVideoDialog({ workspaceName, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -113,22 +113,25 @@ export default function AddVideoDialog({ workspaceId, buttonText = "Add Video", 
 
       const now = new Date()
       // Create video data object
+      // local
+      const videoUrl = "dev/" + filename
+      // prod
+      // const videoUrl = "prod/" + filename
       const videoData = {
         annotations: [],
-        client: "prod",
+        client: workspaceName,
         comments: [],
         createdAt: now,
         dueDate: dueDate,
         id: uuidv4(),
         progress: 0,
         status: "in progress",
-        thumbnail: thumbnail,
         title: title,
         updatedAt: now,
         videoDuration: duration,
         videoSize: selectedFile.size,
         videoType: selectedFile.type,
-        videoUrl: "prod/" + filename,
+        videoUrl: videoUrl,
       }
 
       // Log to console
@@ -141,12 +144,7 @@ export default function AddVideoDialog({ workspaceId, buttonText = "Add Video", 
       
 
       // Pass the video data to the parent component with the correct document ID
-      onVideoAdded({
-        ...videoData,
-        id: videoData.id, // Use the actual Firestore document ID
-        videoUrl: "prod/" + filename,
-        thumbnail: thumbnail,
-      })
+      onVideoAdded({...videoData, thumbnail: thumbnail})
 
       // Reset form
       setTitle("")

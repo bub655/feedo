@@ -7,59 +7,87 @@ import AddVideoDialog from "@/components/add-video-dialog"
 import { db } from "@/lib/firebase"
 import { doc, updateDoc, arrayUnion } from "firebase/firestore"
 
-interface Project {
-  id: string
-  title: string
-  thumbnail: string
-  status: string
-  dueDate: string
-  client: string
-  type: string
-  videoUrl?: string | null
+interface WorkspaceProject {
+  createdAt: string,
+  dueDate: string,
+  numVersions: number,
+  progress: number,
+  size: number,
+  status: string,
+  title: string,
+  updatedAt: string,
+  versions: Versions[]
+}
+
+interface Versions {
+  id: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
+  videoUrl: string,
+}
+
+interface Collaborator {
+  name: string
+  email: string
 }
 
 interface Workspace {
-  id: string
-  name: string
-  description?: string
-  members: number
-  teamMembers?: string[]
-  videos: number
-  projects: Project[]
+  collaborators: Collaborator[],
+  createdAt: string,
+  description: string,
+  name: string,
+  numMembers: number,
+  projects: WorkspaceProject[],
+  size: number,
+  updatedAt: string,
+  videos: number,
 }
 
 interface WorkspaceItemProps {
   workspace: Workspace
   isExpanded: boolean
+  workspaceId: string
   onToggle: () => void
 }
 
-export default function WorkspaceItem({ workspace, isExpanded, onToggle }: WorkspaceItemProps) {
+export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onToggle }: WorkspaceItemProps) {
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
 
   const handleVideoAdded = async (videoData: any) => {
     try {
-      const newProject = {
-        id: videoData.id,
-        title: videoData.title,
-        thumbnail: videoData.thumbnail || "/placeholder.svg?height=150&width=250",
-        status: "In Progress",
+      const workspaceProject = {
+        createdAt: videoData.createdAt,
         dueDate: videoData.dueDate,
-        client: workspace.name,
-        type: "Video",
-        videoUrl: videoData.videoUrl || null,
+        numVersions: 1,
+        progress: videoData.progress,
+        size: videoData.videoSize,
+        status: videoData.status,
+        title: videoData.title,
+        updatedAt: videoData.updatedAt,
+        versions: [{
+          id: videoData.id,
+          thumbnail: videoData.thumbnail,
+          version: 1,
+          videoSize: videoData.videoSize,
+          videoType: videoData.videoType,
+          videoUrl: videoData.videoUrl,
+        }]
       }
-
+      console.log("workspaceProject", workspaceProject)
+      console.log("workspace", workspaceId)
       // Update workspace in Firestore
-      const workspaceRef = doc(db, "workspaces", workspace.id)
+      const workspaceRef = doc(db, "workspaces", workspaceId)
+      console.log("workspaceRef", workspaceId)
       await updateDoc(workspaceRef, {
-        projects: arrayUnion(newProject),
-        videos: workspace.videos + 1
+        projects: [workspaceProject, ...(workspace.projects || [])],
+        videos: (workspace.videos || 0) + 1
       })
-
+      console.log("workspace updated")
       // Update local state
-      workspace.projects.push(newProject)
-      workspace.videos += 1
+      workspace.projects = [workspaceProject, ...(workspace.projects || [])]
+      workspace.videos = (workspace.videos || 0) + 1
     } catch (error) {
       console.error("Error adding video to workspace:", error)
     }
@@ -77,7 +105,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                {workspace.members} members
+                {workspace.collaborators.length} members
               </span>
               <span className="flex items-center gap-1">
                 <Video className="h-4 w-4" />
@@ -88,7 +116,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
         </div>
 
         <div className="flex items-center gap-2">
-          <AddVideoDialog workspaceId={workspace.id} onVideoAdded={handleVideoAdded} />
+          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (
@@ -106,7 +134,7 @@ export default function WorkspaceItem({ workspace, isExpanded, onToggle }: Works
           {workspace.projects.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {workspace.projects.map((project, index) => (
-                <ProjectCard key={project.id} project={project} workspaceId={workspace.id}/>
+                <ProjectCard key={index} project={project} client={workspace.name} versionNo={-1} workspaceId={workspaceId}/>
               ))}
             </div>
           ) : (

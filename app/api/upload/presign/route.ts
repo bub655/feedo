@@ -25,7 +25,10 @@ export async function POST(request: Request) {
     }
 
     const fileExtension = filename.split('.').pop()
-    const key = `prod/${filename.split('.')[0]}-${uuidv4()}.${fileExtension}`
+    // local
+    const key = `dev/${filename.split('.')[0]}-${uuidv4()}.${fileExtension}`
+    // prod
+    // const key = `prod/${filename.split('.')[0]}-${uuidv4()}.${fileExtension}`
 
     const { url, fields } = await createPresignedPost(s3Client, {
       Bucket: process.env.AWS_BUCKET_NAME!,

@@ -16,87 +16,78 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface ProjectCardProps {
-  project: {
-    id: string
-    title: string
-    thumbnail: string
-    status?: string
-    dueDate?: string
-    client?: string
-    type?: string
-    videoUrl?: string | null
-  },
-  workspaceId: string
+  project: WorkspaceProject,
+  client: string,
+  workspaceId: string,
+  versionNo: number
 }
 
-export default function ProjectCard({ project, workspaceId }: ProjectCardProps) {
+interface WorkspaceProject {
+  createdAt: string,
+  dueDate: string,
+  numVersions: number,
+  progress: number,
+  size: number,
+  status: string,
+  title: string,
+  updatedAt: string,
+  versions: Versions[]
+}
+
+interface Versions {
+  id: string,
+  thumbnail: string,
+  version: number,
+  videoSize: number,
+  videoType: string,
+  videoUrl: string,
+}
+
+export default function ProjectCard({ project, workspaceId, client, versionNo }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
   const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    if (!project.videoUrl) {
-      console.log('No video URL provided')
-      return
-    }
+  const selectedVersion = versionNo === -1 
+    ? project.versions[project.versions.length - 1] 
+    : project.versions.find(v => v.version === versionNo) || project.versions[0]
 
-    const video = videoRef.current
-    if (!video) {
-      console.log('Video ref not available')
-      return
-    }
+  // useEffect(() => {
+  //   if (!selectedVersion) {
+  //     console.log('No video URL provided')
+  //     return
+  //   }
 
-    const captureFrame = () => {
-      try {
-        console.log('Attempting to capture frame...')
-        // Seek to 1 second into the video
-        video.currentTime = 1.0
-        
-        // Create canvas with video dimensions
-        const canvas = document.createElement('canvas')
-        canvas.width = video.videoWidth || 640
-        canvas.height = video.videoHeight || 360
-        
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          console.log('Could not get canvas context')
-          return
-        }
+  //   const video = videoRef.current
+  //   if (!video) {
+  //     console.log('Video ref not available')
+  //     return
+  //   }
 
-        // Draw the current frame
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        
-        // Convert to data URL
-        const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8)
-        console.log('Successfully captured frame')
-        setThumbnailSrc(thumbnailUrl)
-      } catch (error) {
-        console.error('Error capturing video frame:', error)
-      }
-    }
+    
 
-    const handleTimeUpdate = () => {
-      console.log('Time updated:', video.currentTime)
-      if (video.currentTime >= 1.0) {
-        captureFrame()
-        video.removeEventListener('timeupdate', handleTimeUpdate)
-      }
-    }
+  //   const handleTimeUpdate = () => {
+  //     console.log('Time updated:', video.currentTime)
+  //     if (video.currentTime >= 1.0) {
+  //       setThumbnailSrc(selectedVersion.thumbnail)
+  //       video.removeEventListener('timeupdate', handleTimeUpdate)
+  //     }
+  //   }
 
-    const handleLoadedMetadata = () => {
-      console.log('Video metadata loaded')
-      video.addEventListener('timeupdate', handleTimeUpdate)
-      video.currentTime = 1.0
-    }
+  //   const handleLoadedMetadata = () => {
+  //     console.log('Video metadata loaded')
+  //     video.addEventListener('timeupdate', handleTimeUpdate)
+  //     video.currentTime = 1.0
+  //   }
 
-    video.addEventListener('loadedmetadata', handleLoadedMetadata)
-    video.load()
+  //   video.addEventListener('loadedmetadata', handleLoadedMetadata)
+  //   video.load()
 
-    return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      video.removeEventListener('timeupdate', handleTimeUpdate)
-    }
-  }, [project.videoUrl])
+  //   return () => {
+  //     video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+  //     video.removeEventListener('timeupdate', handleTimeUpdate)
+  //   }
+  // }, [project.versions, versionNo])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -127,12 +118,12 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
           muted
           crossOrigin="anonymous"
         >
-          <source src={project.videoUrl || ''} type="video/mp4" />
+          <source src={selectedVersion.videoUrl || ''} type="video/mp4" />
         </video>
 
-        <Link href={`/dashboard/video/${project.id}`}>
+        <Link href={`/dashboard/video/${selectedVersion.id}?workspaceId=${workspaceId}`}>
           <Image
-            src={thumbnailSrc}
+            src={selectedVersion.thumbnail}
             alt={project.title}
             width={250}
             height={150}
@@ -148,7 +139,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
 
       <div className="p-4">
         <div className="flex items-start justify-between">
-          <Link href={`/dashboard/video/${project.id}`} className="hover:underline">
+          <Link href={`/dashboard/video/${selectedVersion.id}?workspaceId=${workspaceId}`} className="hover:underline">
             <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
@@ -191,7 +182,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
           </div>
           <div className="flex items-center text-xs text-gray-500">
             <User className="mr-1.5 h-3.5 w-3.5" />
-            Client: {project.client}
+            Client: {client}
           </div>
           <div className="flex items-center text-xs text-gray-500">
             <svg
@@ -210,7 +201,7 @@ export default function ProjectCard({ project, workspaceId }: ProjectCardProps) 
               <polyline points="3.29 7 12 12 20.71 7" />
               <line x1="12" x2="12" y1="22" y2="12" />
             </svg>
-            Type: {project.type}
+            Type: {selectedVersion.videoType}
           </div>
         </div>
       </div>
