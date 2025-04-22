@@ -15,7 +15,8 @@ interface Annotation {
 interface AnnotationCanvasProps {
   isDrawing: boolean
   setIsDrawing: (isDrawing: boolean) => void
-  onSave: (annotationData: string) => void
+  onSave: (annotationData: string, annotationId?: string) => void
+  onDelete?: (annotationId: string) => void
   selectedAnnotation: Annotation | null
   isPlaying: boolean
   onClearSelection: () => void
@@ -25,6 +26,7 @@ export default function AnnotationCanvas({
   isDrawing,
   setIsDrawing,
   onSave,
+  onDelete,
   selectedAnnotation,
   isPlaying,
   onClearSelection
@@ -130,12 +132,33 @@ export default function AnnotationCanvas({
     setIsDrawingActive(false)
   }
 
+  const isCanvasEmpty = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return true
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return true
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    return !imageData.some(channel => channel !== 0)
+  }
+
   const handleSave = () => {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    if (isCanvasEmpty()) {
+      // If canvas is empty and we have a selected annotation, delete it
+      if (selectedAnnotation) {
+        onDelete?.(selectedAnnotation.id)
+        onClearSelection()
+      }
+      return
+    }
+
     const annotationData = canvas.toDataURL()
-    onSave(annotationData)
+    // Pass the selected annotation ID if we're updating an existing one
+    onSave(annotationData, selectedAnnotation?.id)
   }
 
   const handleClear = () => {
@@ -167,18 +190,18 @@ export default function AnnotationCanvas({
           variant="secondary"
           size="icon"
           onClick={() => setIsDrawing(!isDrawing)}
-          className={`${isDrawing ? "bg-primary text-primary-foreground" : "bg-black/50 hover:bg-black/70"}`}
+          className={`${isDrawing ? "bg-primary text-primary-foreground" : "bg-black/50 hover:bg-black/70"} text-white`}
         >
           <Pencil className="h-5 w-5" />
         </Button>
 
         {isDrawing && (
           <>
-            <Button variant="secondary" size="icon" onClick={handleClear} className="bg-black/50 hover:bg-black/70">
+            <Button variant="secondary" size="icon" onClick={handleClear} className="bg-black/50 hover:bg-black/70 text-white">
               <Trash2 className="h-5 w-5" />
             </Button>
 
-            <Button variant="secondary" size="icon" onClick={handleSave} className="bg-black/50 hover:bg-black/70">
+            <Button variant="secondary" size="icon" onClick={handleSave} className="bg-black/50 hover:bg-black/70 text-white">
               <Save className="h-5 w-5" />
             </Button>
           </>

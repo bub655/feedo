@@ -225,34 +225,77 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     }
   }
 
-  const handleSaveAnnotation = async (annotationData: string) => {
+  const handleSaveAnnotation = async (annotationData: string, annotationId?: string) => {
     if (!user || !project) return
 
     try {
       const docRef = doc(db, "projects", projectId)
       const timestamp = formatTime(currentTime)
       
-      const newAnnotation: Annotation = {
-        id: crypto.randomUUID(),
-        data: annotationData,
-        timestamp,
-        timeFormatted: timestamp,
-        createdAt: Timestamp.now(),
-        userId: user.id,
-        userName: user.fullName || user.username || 'Anonymous',
-        userImageUrl: user.imageUrl,
-        isResolved: false,
-        resolved: null
+      if (annotationId) {
+        // Update existing annotation
+        const updatedAnnotations = annotations.map(annotation => 
+          annotation.id === annotationId
+            ? {
+                ...annotation,
+                data: annotationData,
+                timestamp,
+                timeFormatted: timestamp,
+                updatedAt: Timestamp.now()
+              }
+            : annotation
+        )
+
+        await updateDoc(docRef, {
+          annotations: updatedAnnotations
+        })
+
+        setAnnotations(updatedAnnotations)
+      } else {
+        // Create new annotation
+        const newAnnotation: Annotation = {
+          id: crypto.randomUUID(),
+          data: annotationData,
+          timestamp,
+          timeFormatted: timestamp,
+          createdAt: Timestamp.now(),
+          userId: user.id,
+          userName: user.fullName || user.username || 'Anonymous',
+          userImageUrl: user.imageUrl,
+          isResolved: false,
+          resolved: null
+        }
+
+        await updateDoc(docRef, {
+          annotations: arrayUnion(newAnnotation)
+        })
+
+        setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation])
       }
-
-      await updateDoc(docRef, {
-        annotations: arrayUnion(newAnnotation)
-      })
-
-      setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation])
+      
       setIsDrawing(false)
+      setSelectedAnnotation(null)
     } catch (error) {
       console.error("Error saving annotation:", error)
+    }
+  }
+
+  const handleDeleteAnnotation = async (annotationId: string) => {
+    if (!project) return
+
+    try {
+      const docRef = doc(db, "projects", projectId)
+      const updatedAnnotations = annotations.filter(a => a.id !== annotationId)
+
+      await updateDoc(docRef, {
+        annotations: updatedAnnotations
+      })
+
+      setAnnotations(updatedAnnotations)
+      setSelectedAnnotation(null)
+      setIsDrawing(false)
+    } catch (error) {
+      console.error("Error deleting annotation:", error)
     }
   }
 
@@ -441,6 +484,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   isDrawing={isDrawing}
                   setIsDrawing={setIsDrawing}
                   onSave={handleSaveAnnotation}
+                  onDelete={handleDeleteAnnotation}
                   selectedAnnotation={selectedAnnotation}
                   isPlaying={isPlaying}
                   onClearSelection={handleClearSelection}
