@@ -69,7 +69,7 @@ export default function VideoComment({
           {timestamp && (
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="secondary" className="bg-gray-100">
-                {timestamp}
+                {timestamp.toString().substring(0, timestamp.toString().length-2)}
               </Badge>
               {isResolved && (
                 <Badge variant="secondary" className="bg-green-50 text-green-700">

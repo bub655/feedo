@@ -25,7 +25,7 @@ import {
   CheckCircle,
   Upload,
 } from "lucide-react"
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -94,7 +94,8 @@ interface Resolver {
 export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const { user } = useUser()
   const params = useParams()
-  const workspaceId = params.workspaceId as string || new URLSearchParams(window.location.search).get('workspaceId') || ''
+  const searchParams = useSearchParams()
+  const workspaceId = params.workspaceId as string || searchParams.get('workspaceId') || ''
   console.log("workspaceId: ", workspaceId)
   const [project, setProject] = useState<Project | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
@@ -332,25 +333,25 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     }
   }
 
-  const formatTime = (time: number): string => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
+  const formatTime = (timeInMs: number): string => {
+    const minutes = Math.floor(timeInMs / 60000)
+    const seconds = Math.floor((timeInMs % 60000) / 1000)
+    const milliseconds = timeInMs % 1000
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}.${milliseconds.toString().padStart(3, '0')}`
   }
 
   const handleAnnotationClick = (annotation: Annotation) => {
-    // Clear current selection if clicking on a different annotation
     if (selectedAnnotation?.id !== annotation.id) {
       setSelectedAnnotation(annotation)
     } else {
       setSelectedAnnotation(null)
     }
-    // Convert timestamp string to seconds
-    const [minutes, seconds] = annotation.timestamp.split(':').map(Number)
-    const timeInSeconds = minutes * 60 + seconds
-    setSeekTo(timeInSeconds)
+    // Convert timestamp string to milliseconds
+    const [minutesPart, secondsPart] = annotation.timestamp.split(':')
+    const [seconds, milliseconds = '0'] = secondsPart.split('.')
+    const timeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
+    setSeekTo(timeInMs / 1000) // Convert to seconds for video seeking
     setIsPlaying(false)
-    // Pause the video
     const video = document.querySelector('video')
     if (video) {
       video.pause()
@@ -358,15 +359,14 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   }
 
   const handleCommentClick = (comment: Comment) => {
-    // Clear any selected annotation when clicking on a comment
     setSelectedAnnotation(null)
     if (comment.timestamp) {
-      // Convert timestamp string to seconds
-      const [minutes, seconds] = comment.timestamp.split(':').map(Number)
-      const timeInSeconds = minutes * 60 + seconds
-      setSeekTo(timeInSeconds)
+      // Convert timestamp string to milliseconds
+      const [minutesPart, secondsPart] = comment.timestamp.split(':')
+      const [seconds, milliseconds = '0'] = secondsPart.split('.')
+      const timeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
+      setSeekTo(timeInMs / 1000) // Convert to seconds for video seeking
       setIsPlaying(false)
-      // Pause the video
       const video = document.querySelector('video')
       if (video) {
         video.pause()
@@ -379,13 +379,13 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   }
 
   const handleTimeUpdate = (time: number) => {
-    setCurrentTime(time)
-    // Clear annotation if current time doesn't match any annotation's timestamp
+    const timeInMs = Math.floor(time * 1000) // Convert seconds to milliseconds
+    setCurrentTime(timeInMs)
     if (selectedAnnotation) {
-      const [minutes, seconds] = selectedAnnotation.timestamp.split(':').map(Number)
-      const annotationTimeInSeconds = minutes * 60 + seconds
-      // If current time is more than 1 second away from annotation time, clear it
-      if (Math.abs(time - annotationTimeInSeconds) > 1) {
+      const [minutesPart, secondsPart] = selectedAnnotation.timestamp.split(':')
+      const [seconds, milliseconds = '0'] = secondsPart.split('.')
+      const annotationTimeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
+      if (Math.abs(timeInMs - annotationTimeInMs) > 1000) { // 1 second tolerance in milliseconds
         setSelectedAnnotation(null)
       }
     }
@@ -583,7 +583,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           </Avatar>
                           <span className="text-sm font-medium">{item.userName}</span>
                           <Badge variant="secondary" className="ml-auto">
-                            {item.timeFormatted}
+                            {item.timeFormatted.toString().substring(0, item.timeFormatted.toString().length-2)}
                           </Badge>
                     <Button
                             variant="ghost"
@@ -642,7 +642,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   </Avatar>
                   <div className="flex-1">
                     <div className="mb-2 flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-gray-100">
+                      <Badge variant="secondary" className="bg-gray-100 font-mono">
                         {formatTime(currentTime)}
                       </Badge>
                       <span className="text-xs text-gray-500">Type @time to add timestamp</span>
