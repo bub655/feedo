@@ -97,7 +97,8 @@ export default function WorkspacePage() {
   }, [user]);
 
   const handleAddTeamMember = () => {
-    if (newTeamMember && !teamMembers.some((member) => member.email === newTeamMember)) {
+    if (newTeamMember && !teamMembers.some((member) => member.email === newTeamMember) &&
+      newTeamMember !== user?.primaryEmailAddress?.emailAddress) {
       setTeamMembers([...teamMembers, { email: newTeamMember, permission: newTeamMemberPermission }])
       setNewTeamMember("")
       setNewTeamMemberPermission("viewer") // Reset to default
@@ -230,7 +231,7 @@ export default function WorkspacePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Invite Team Members (up to 5)</label>
+                  <label className="text-sm font-medium">Invite Team Members</label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="Enter email address"
