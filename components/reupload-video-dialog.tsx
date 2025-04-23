@@ -203,7 +203,18 @@ export default function ReuploadVideoDialog({
       workspaceData.projects[projectIndex].size = workspaceData.projects[projectIndex].size + newVersion.videoSize
       workspaceData.projects[projectIndex].updatedAt = now
       workspaceData.projects[projectIndex].numVersions = workspaceData.projects[projectIndex].versions.length
+      // delete the first element in the project.versions array until the size is less than 1048576
+      while (JSON.stringify(workspaceData).length >= 1048576) {
+        workspaceData.projects[projectIndex].versions.shift()
+        workspaceData.projects[projectIndex].size = workspaceData.projects[projectIndex].versions.reduce((sum: number, version: any) => sum + version.videoSize, 0)
+        workspaceData.projects[projectIndex].numVersions = workspaceData.projects[projectIndex].versions.length
+      }
       console.log("workspace data", workspaceData)
+      console.log("workspace data length", JSON.stringify(workspaceData).length); // in bytes
+      //projects
+      console.log("workspace data projects length", JSON.stringify(workspaceData.projects).length)
+      console.log("workspace data projects", workspaceData.projects)
+
       await updateDoc(workspaceRef, {
         projects: workspaceData.projects,
         size: workspaceData.projects[projectIndex].size + newVersion.videoSize,

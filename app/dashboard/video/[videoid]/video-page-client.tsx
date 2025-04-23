@@ -35,7 +35,6 @@ import VideoComment from "@/components/video-comment"
 import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import AnnotationCanvas from "@/components/annotation-canvas"
-import AddVideoDialog from "@/components/add-video-dialog"
 import ReuploadVideoDialog from "@/components/reupload-video-dialog"
 
 interface VideoPageClientProps {

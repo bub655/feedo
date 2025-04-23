@@ -5,7 +5,7 @@ import { Building, ChevronDown, ChevronUp, Users, Video } from "lucide-react"
 import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, arrayUnion } from "firebase/firestore"
+import { doc, updateDoc, arrayUnion, collection, addDoc } from "firebase/firestore"
 
 interface WorkspaceProject {
   createdAt: string,
@@ -16,10 +16,10 @@ interface WorkspaceProject {
   status: string,
   title: string,
   updatedAt: string,
-  versions: Versions[]
+  versions: Version[]
 }
 
-interface Versions {
+interface Version {
   id: string,
   thumbnail: string,
   version: number,
@@ -57,6 +57,22 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
 
   const handleVideoAdded = async (videoData: any) => {
     try {
+      const version = {
+        id: videoData.id,
+        thumbnail: videoData.thumbnail,
+        version: 1,
+        videoSize: videoData.videoSize,
+        videoType: videoData.videoType,
+        videoUrl: videoData.videoUrl,
+      }
+
+      //save version to firestore subcollection of worksapce document
+      // const versionsCollectionRef = collection(db, "workspaces", workspaceId, "versions")
+      // // add version to subcollection and get the id
+      // const docRef = await addDoc(versionsCollectionRef, version)
+      // const versionId = docRef.id
+      // console.log("versionId", versionId)
+
       const workspaceProject = {
         createdAt: videoData.createdAt,
         dueDate: videoData.dueDate,
@@ -66,20 +82,13 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
         status: videoData.status,
         title: videoData.title,
         updatedAt: videoData.updatedAt,
-        versions: [{
-          id: videoData.id,
-          thumbnail: videoData.thumbnail,
-          version: 1,
-          videoSize: videoData.videoSize,
-          videoType: videoData.videoType,
-          videoUrl: videoData.videoUrl,
-        }]
+        versions: [version]
       }
       console.log("workspaceProject", workspaceProject)
       console.log("workspace", workspaceId)
       // Update workspace in Firestore
       const workspaceRef = doc(db, "workspaces", workspaceId)
-      console.log("workspaceRef", workspaceId)
+      console.log("workspaceRef", workspaceRef)
       await updateDoc(workspaceRef, {
         projects: [workspaceProject, ...(workspace.projects || [])],
         videos: (workspace.videos || 0) + 1,
