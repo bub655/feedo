@@ -29,7 +29,10 @@ interface AddVideoDialogProps {
 export default function AddVideoDialog({ workspaceName, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState("")
-  const [dueDate, setDueDate] = useState("")
+  const [dueDate, setDueDate] = useState(() => {
+    const today = new Date()
+    return today.toISOString().split('T')[0]
+  })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -147,10 +150,11 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   }
 
   const handleUpload = async () => {
-    if (!title || !dueDate || !selectedFile) return
+    if (!title || !selectedFile) return
 
     setIsUploading(true)
 
+    console.log("Due Date: ", dueDate)
     try {
       // Get presigned URL from API
       const response = await fetch('/api/upload/presign', {
@@ -240,7 +244,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
 
   const resetForm = () => {
     setTitle("")
-    setDueDate("")
+    setDueDate(new Date().toISOString().split('T')[0])
     setSelectedFile(null)
     setIsUploading(false)
     setUploadProgress(0)
@@ -375,7 +379,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
           <Button
             className="bg-sky-500 hover:bg-sky-600"
             onClick={handleUpload}
-            disabled={!selectedFile || isUploading}
+            disabled={!dueDate || !title || !selectedFile || isUploading}
           >
             {isUploading ? "Uploading..." : "Upload Video"}
           </Button>
