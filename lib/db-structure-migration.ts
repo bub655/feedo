@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: 'lib/.env' });
 
 import { db } from './firebase';
-import { collection, getDocs, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, deleteDoc, serverTimestamp, doc, setDoc, addDoc } from 'firebase/firestore';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -266,4 +266,39 @@ async function fixWorkspaceFormatting() {
 }
 
 // Run the migration
-fixWorkspaceFormatting();
+// fixWorkspaceFormatting();
+
+// Fix project versions in workspaces
+async function fixVersions() {
+    // for each workspace, get the projects
+    // for each version in the project create a new version document in the workspace versions collection
+    // update each version in a project within a workspace with the new version id
+    // replace the version elements in the project with the new version ids
+    const workspacesSnapshot = await getDocs(collection(db, 'workspaces'));
+    console.log(`Found ${workspacesSnapshot.size} workspaces`);
+
+    for (const workspaceDoc of workspacesSnapshot.docs) {
+        const workspaceData = workspaceDoc.data();
+        console.log(`Processing workspace: ${workspaceData.name}`);
+        for (const project of workspaceData.projects) {
+            let newVersions = [];
+            if(project.versions && project.versions.length > 0) {
+                for (const version of project.versions) {
+                    const versionData = version
+                    console.log(`Processing version: ${JSON.stringify(versionData)}`);
+                    const versionRef = collection(db, 'workspaces', workspaceDoc.id, 'versions');
+                    const newVersionId = await addDoc(versionRef, versionData);
+                    // replace the version in project.versions with the new version id
+                    newVersions.push(newVersionId);
+                }
+                // replace the versions in project.versions with the new version ids
+                await updateDoc(project.ref, {
+                    versions: newVersions
+                });
+            }
+        }
+        
+    }
+}
+
+// fixVersions();
