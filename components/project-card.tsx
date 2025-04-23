@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, MoreVertical, Play, User } from "lucide-react"
+import { Calendar, MoreVertical, Play, User, Loader2 } from "lucide-react"
+import { doc, getDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -36,7 +38,8 @@ interface WorkspaceProject {
 
 interface Versions {
   id: string,
-  thumbnail: string,
+  thumbnail?: string,
+  thumbnailId?: string,
   version: number,
   videoSize: number,
   videoType: string,
@@ -45,31 +48,10 @@ interface Versions {
 
 export default function ProjectCard({ project, workspaceId, client, versionNo }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
-  const [thumbnailSrc, setThumbnailSrc] = useState<string>("/placeholder.svg")
+  const [selectedVersion, setSelectedVersion] = useState(project.versions[0])
+  const [thumbnail, setThumbnail] = useState<string | null>(null)
+  const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
-
-  const selectedVersion = versionNo === -1 
-    ? project.versions[project.versions.length - 1] 
-    : project.versions.find(v => v.version === versionNo) || project.versions[0]
-
-  // useEffect(() => {
-  //   const fetchVersion = async () => {
-  //     if (versionNo === -1) {
-  //       const versionRef = doc(db, "workspaces", workspaceId, "versions", project.versions[0])
-  //       const versionDoc = await getDoc(versionRef)
-  //       setSelectedVersion(versionDoc.data() as Version)
-  //     } else {
-  //       const versions = await Promise.all(project.versions.map(async (versionId) => {
-  //         const versionRef = doc(db, "workspaces", workspaceId, "versions", versionId)
-  //         const versionDoc = await getDoc(versionRef)
-  //         return versionDoc.data() as Version
-  //       }))
-  //       const version = versions.find(v => v.version === versionNo)
-  //       setSelectedVersion(version || versions[0])
-  //     }
-  //   }
-  //   fetchVersion()
-  // }, [project.versions, versionNo, workspaceId])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -88,29 +70,62 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
     }
   }
 
+  useEffect(() => {
+    const fetchThumbnail = async () => {
+      setIsLoadingThumbnail(true)
+      try {
+        // First check for thumbnailId
+        if (selectedVersion.thumbnailId) {
+          const thumbnailDoc = await getDoc(doc(db, "thumbnails", selectedVersion.thumbnailId))
+          if (thumbnailDoc.exists()) {
+            setThumbnail(thumbnailDoc.data().data)
+            setIsLoadingThumbnail(false)
+            return
+          }
+        }
+        
+        // If no thumbnailId or thumbnail not found, check for thumbnail property
+        if (selectedVersion.thumbnail) {
+          setThumbnail(selectedVersion.thumbnail)
+          setIsLoadingThumbnail(false)
+          return
+        }
+
+        // If neither exists, set thumbnail to null
+        setThumbnail(null)
+      } catch (error) {
+        console.error("Error fetching thumbnail:", error)
+        setThumbnail(null)
+      } finally {
+        setIsLoadingThumbnail(false)
+      }
+    }
+
+    fetchThumbnail()
+  }, [selectedVersion])
+
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
-        {/* Hidden video element to capture first frame */}
-        <video 
-          ref={videoRef}
-          className="hidden"
-          preload="metadata"
-          playsInline
-          muted
-          crossOrigin="anonymous"
-        >
-          <source src={selectedVersion.videoUrl || ''} type="video/mp4" />
-        </video>
-
-        <Link href={`/dashboard/video/${selectedVersion.id}?workspaceId=${workspaceId}`}>
+        {isLoadingThumbnail ? (
+          <div className="h-36 w-full flex items-center justify-center bg-gray-100">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          </div>
+        ) : thumbnail ? (
           <Image
-            src={selectedVersion.thumbnail}
+            src={thumbnail}
             alt={project.title}
             width={250}
             height={150}
             className="h-36 w-full object-cover"
           />
+        ) : (
+          <div className="h-36 w-full bg-gray-100 flex items-center justify-center">
+            <span className="text-gray-400">No thumbnail available</span>
+          </div>
+        )}
+
+        <Link href={`/dashboard/video/${selectedVersion.id}?workspaceId=${workspaceId}`}>
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/80 text-sky-600">
               <Play className="h-6 w-6" />

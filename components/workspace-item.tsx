@@ -21,7 +21,8 @@ interface WorkspaceProject {
 
 interface Version {
   id: string,
-  thumbnail: string,
+  thumbnailId?: string,
+  thumbnail?: string, 
   version: number,
   videoSize: number,
   videoType: string,
@@ -59,7 +60,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
     try {
       const version = {
         id: videoData.id,
-        thumbnail: videoData.thumbnail,
+        thumbnailId: videoData.thumbnailId,
         version: 1,
         videoSize: videoData.videoSize,
         videoType: videoData.videoType,
