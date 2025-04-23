@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Upload, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, arrayUnion, setDoc, getDoc } from "firebase/firestore"
+import { doc, updateDoc, arrayUnion, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { v4 as uuidv4 } from 'uuid'
 
 import { Button } from "@/components/ui/button"
@@ -144,7 +144,17 @@ export default function ReuploadVideoDialog({
 
       console.log("key: ", key)
 
-
+      // save thumbnail to thumbnail collection
+      const thumbnailId = uuidv4()
+      const thumbnailDoc = {
+        id: thumbnailId,
+        data: thumbnail,
+        createdAt: serverTimestamp(),
+      }
+      console.log("thumbnailDoc: ", thumbnailDoc)
+      const thumbnailRef = doc(db, "thumbnails", thumbnailId)
+      await setDoc(thumbnailRef, thumbnailDoc)
+      console.log("thumbnail saved to thumbnails collection")
       // const projectRef = doc(db, "projects", projectId)
       const now = new Date()
       const newVersion = {
@@ -156,7 +166,7 @@ export default function ReuploadVideoDialog({
         id: uuidv4(),
         progress: 0,
         status: "in progress",
-        thumbnail: thumbnail,
+        thumbnailId: thumbnailId,
         title: currentVersion.title,
         updatedAt: now,
         videoDuration: duration,
@@ -195,7 +205,7 @@ export default function ReuploadVideoDialog({
       workspaceData.projects[projectIndex].versions.push({
         id: newVersion.id,
         videoUrl: newVersion.videoUrl,
-        thumbnail: newVersion.thumbnail,
+        thumbnailId: newVersion.thumbnailId,
         videoType: newVersion.videoType,
         version: workspaceData.projects[projectIndex].versions.reduce((max: number, version: any) => Math.max(max, version.version), 0) + 1,
         videoSize: newVersion.videoSize,
