@@ -17,7 +17,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, doc, setDoc } from "firebase/firestore"
+import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { storageService } from "@/lib/storage"
 
 interface AddVideoDialogProps {
@@ -36,23 +36,84 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const generateVideoThumbnail = (file: File): Promise<string> => {
-    return new Promise((resolve) => {
+    console.log("Generating Thumbnail")
+    return new Promise((resolve, reject) => {
+      console.log("Creating Video Element")
       const video = document.createElement('video')
-      video.preload = 'metadata'
-      video.onloadeddata = () => {
-        video.currentTime = 1
-        video.onseeked = () => {
+      console.log("Video Element Created")
+      
+      // Set video attributes for Safari
+      video.setAttribute('playsinline', '')
+      video.setAttribute('webkit-playsinline', '')
+      video.setAttribute('muted', '')
+      video.setAttribute('autoplay', '')
+      video.setAttribute('preload', 'metadata')
+      
+      // Create a FileReader to read the file
+      const reader = new FileReader()
+      
+      reader.onload = (e) => {
+        if (!e.target?.result) {
+          reject(new Error('Failed to read file'))
+          return
+        }
+        
+        const videoUrl = e.target.result as string
+        console.log("Created Video URL from FileReader")
+        
+        video.addEventListener('loadedmetadata', () => {
+          console.log("Loaded Metadata")
+          console.log("Video Duration:", video.duration)
+          console.log("Video Width:", video.videoWidth)
+          console.log("Video Height:", video.videoHeight)
+          
+          // Set current time to 1 second or duration if less than 1 second
+          video.currentTime = Math.min(1, video.duration)
+        })
+
+        video.addEventListener('seeked', () => {
+          console.log("Seeked")
           const canvas = document.createElement('canvas')
           canvas.width = video.videoWidth
           canvas.height = video.videoHeight
           const ctx = canvas.getContext('2d')
           if (ctx) {
+            console.log("Drawing Image")
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
             resolve(canvas.toDataURL('image/jpeg'))
+          } else {
+            reject(new Error('Could not create canvas context'))
           }
-        }
+        })
+
+        video.addEventListener('error', (e) => {
+          console.error("Video Error:", e)
+          reject(new Error('Error loading video'))
+        })
+
+        video.addEventListener('stalled', () => {
+          console.log("Video Stalled")
+        })
+
+        video.addEventListener('suspend', () => {
+          console.log("Video Suspend")
+        })
+
+        video.src = videoUrl
+        console.log("Set Video Source")
+        
+        // Try to force load
+        video.load()
+        console.log("Called video.load()")
       }
-      video.src = URL.createObjectURL(file)
+
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'))
+      }
+
+      // Read the file as a data URL
+      reader.readAsDataURL(file)
+      console.log("Started reading file")
     })
   }
 
@@ -126,10 +187,22 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         throw new Error('Upload failed')
       }
 
-      console.log("key: ", key)
       // Generate thumbnail and get duration
       const thumbnail = await generateVideoThumbnail(selectedFile)
+      console.log("Generated Thumbnail")
       const duration = await getVideoDurationInSeconds(selectedFile)
+
+      // Create thumbnail document first
+      const thumbnailId = uuidv4()
+      const thumbnailDoc = {
+        id: thumbnailId,
+        data: thumbnail,
+        createdAt: serverTimestamp(),
+      }
+      
+      // Add thumbnail to Firestore
+      const thumbnailRef = doc(db, "thumbnails", thumbnailId)
+      await setDoc(thumbnailRef, thumbnailDoc)
 
       const now = new Date()
       const videoData = {
@@ -147,16 +220,16 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         videoSize: selectedFile.size,
         videoType: selectedFile.type,
         videoUrl: key,
+        thumbnailId: thumbnailId, // Reference to the thumbnail document
       }
 
+      console.log("Video Data: ", videoData)
       // Add to Firestore
       const docRef = doc(db, "projects", videoData.id)
       await setDoc(docRef, videoData)
-      console.log("Document written with ID:", docRef.id)
-      
 
-      // Pass the video data to the parent component with the correct document ID
-      onVideoAdded({...videoData, thumbnail: thumbnail})
+      // Pass the video data to the parent component
+      onVideoAdded(videoData)
       resetForm()
     } catch (error) {
       console.error("Error uploading video:", error)
@@ -302,7 +375,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
           <Button
             className="bg-sky-500 hover:bg-sky-600"
             onClick={handleUpload}
-            disabled={!title || !dueDate || !selectedFile || isUploading}
+            disabled={!selectedFile || isUploading}
           >
             {isUploading ? "Uploading..." : "Upload Video"}
           </Button>
