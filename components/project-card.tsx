@@ -53,41 +53,23 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
     : project.versions.find(v => v.version === versionNo) || project.versions[0]
 
   // useEffect(() => {
-  //   if (!selectedVersion) {
-  //     console.log('No video URL provided')
-  //     return
-  //   }
-
-  //   const video = videoRef.current
-  //   if (!video) {
-  //     console.log('Video ref not available')
-  //     return
-  //   }
-
-    
-
-  //   const handleTimeUpdate = () => {
-  //     console.log('Time updated:', video.currentTime)
-  //     if (video.currentTime >= 1.0) {
-  //       setThumbnailSrc(selectedVersion.thumbnail)
-  //       video.removeEventListener('timeupdate', handleTimeUpdate)
+  //   const fetchVersion = async () => {
+  //     if (versionNo === -1) {
+  //       const versionRef = doc(db, "workspaces", workspaceId, "versions", project.versions[0])
+  //       const versionDoc = await getDoc(versionRef)
+  //       setSelectedVersion(versionDoc.data() as Version)
+  //     } else {
+  //       const versions = await Promise.all(project.versions.map(async (versionId) => {
+  //         const versionRef = doc(db, "workspaces", workspaceId, "versions", versionId)
+  //         const versionDoc = await getDoc(versionRef)
+  //         return versionDoc.data() as Version
+  //       }))
+  //       const version = versions.find(v => v.version === versionNo)
+  //       setSelectedVersion(version || versions[0])
   //     }
   //   }
-
-  //   const handleLoadedMetadata = () => {
-  //     console.log('Video metadata loaded')
-  //     video.addEventListener('timeupdate', handleTimeUpdate)
-  //     video.currentTime = 1.0
-  //   }
-
-  //   video.addEventListener('loadedmetadata', handleLoadedMetadata)
-  //   video.load()
-
-  //   return () => {
-  //     video.removeEventListener('loadedmetadata', handleLoadedMetadata)
-  //     video.removeEventListener('timeupdate', handleTimeUpdate)
-  //   }
-  // }, [project.versions, versionNo])
+  //   fetchVersion()
+  // }, [project.versions, versionNo, workspaceId])
 
   const getStatusColor = (status: string) => {
     switch (status) {
