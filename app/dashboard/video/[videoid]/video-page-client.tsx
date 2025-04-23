@@ -24,6 +24,8 @@ import {
   Users,
   CheckCircle,
   Upload,
+  Plus,
+  X
 } from "lucide-react"
 import { useParams, useSearchParams } from 'next/navigation'
 
@@ -36,6 +38,8 @@ import VideoPlayer from "@/components/video-player"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import AnnotationCanvas from "@/components/annotation-canvas"
 import ReuploadVideoDialog from "@/components/reupload-video-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 interface VideoPageClientProps {
   projectId: string
@@ -107,6 +111,10 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [seekTo, setSeekTo] = useState<number | undefined>(undefined)
   const [isReuploadDialogOpen, setIsReuploadDialogOpen] = useState(false)
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [newTeamMember, setNewTeamMember] = useState("")
+  const [newTeamMemberPermission, setNewTeamMemberPermission] = useState("viewer")
+  const [teamMembers, setTeamMembers] = useState<{ email: string; permission: string }[]>([])
 
   // Add useEffect to log project changes
   useEffect(() => {
@@ -408,6 +416,41 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     } catch (error) {
       console.error('Error downloading video:', error)
     }
+
+  }
+
+  const handleAddTeamMember = async () => {
+    if (!newTeamMember || !newTeamMemberPermission) return
+
+    try {
+      const docRef = doc(db, "workspaces", workspaceId)
+      const newMember = { email: newTeamMember, permission: newTeamMemberPermission }
+      
+      await updateDoc(docRef, {
+        teamMembers: arrayUnion(newMember)
+      })
+
+      setTeamMembers(prev => [...prev, newMember])
+      setNewTeamMember("")
+      setNewTeamMemberPermission("viewer")
+    } catch (error) {
+      console.error("Error adding team member:", error)
+    }
+  }
+
+  const handleRemoveTeamMember = async (email: string) => {
+    try {
+      const docRef = doc(db, "projects", projectId)
+      const updatedMembers = teamMembers.filter(member => member.email !== email)
+      
+      await updateDoc(docRef, {
+        teamMembers: updatedMembers
+      })
+
+      setTeamMembers(updatedMembers)
+    } catch (error) {
+      console.error("Error removing team member:", error)
+    }
   }
 
   if (loading) {
@@ -459,10 +502,94 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                 <Upload className="h-4 w-4" />
                 Reupload
               </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
+              <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    size="sm" 
+                    className="gap-1.5"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Share Video</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Invite Team Members</label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter email address"
+                          value={newTeamMember}
+                          onChange={(e) => setNewTeamMember(e.target.value)}
+                          className="flex-1"
+                        />
+                        <select
+                          value={newTeamMemberPermission}
+                          onChange={(e) => setNewTeamMemberPermission(e.target.value)}
+                          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                        >
+                          <option value="editor">Editor</option>
+                          <option value="client">Client</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                        <Button type="button" onClick={handleAddTeamMember} className="bg-sky-500 hover:bg-sky-600 px-3">
+                          <Plus className="h-5 w-5" />
+                        </Button>
+                      </div>
+
+                      {teamMembers.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-500 mb-2">Team members:</p>
+                          <div className="space-y-2">
+                            {teamMembers.map(({ email, permission }) => (
+                              <div
+                                key={email}
+                                className="flex items-center justify-between bg-gray-100 rounded-md px-3 py-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-800">{email}</span>
+                                  <span className="text-sm text-gray-500">({permission})</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveTeamMember(email)}
+                                  className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <label className="text-sm font-medium">Public Link</label>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          readOnly
+                          value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}`}
+                          className="flex-1"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}`)
+                          }}
+                        >
+                          Copy Link
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
