@@ -12,7 +12,8 @@ import {
   arrayRemove,
   serverTimestamp,
   Timestamp,
-  FieldValue
+  FieldValue,
+  increment
 } from "firebase/firestore"
 import {
   ChevronLeft,
@@ -478,7 +479,8 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       const newMember = { email: newTeamMember, permission: newTeamMemberPermission }
       
       await updateDoc(docRef, {
-        collaborators: arrayUnion(newMember)
+        collaborators: arrayUnion(newMember),
+        numMembers: increment(1)
       })
 
       setTeamMembers(prev => [...prev, newMember])
@@ -497,7 +499,8 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       const updatedMembers = teamMembers.filter(member => member.email !== email)
       
       await updateDoc(docRef, {
-        collaborators: updatedMembers
+        collaborators: updatedMembers,
+        numMembers: increment(-1)
       })
 
       setTeamMembers(updatedMembers)
@@ -624,7 +627,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                                     className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
                                   >
                                     <X className="h-4 w-4" />
-                                  </Button>
+                </Button>
                                 </div>
                               ))}
                           </div>
