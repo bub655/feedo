@@ -26,7 +26,8 @@ import {
   CheckCircle,
   Upload,
   Plus,
-  X
+  X,
+  Clock
 } from "lucide-react"
 import { useParams, useSearchParams } from 'next/navigation'
 
@@ -94,30 +95,31 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const [teamMembers, setTeamMembers] = useState<{ email: string; permission: string }[]>([])
   const [teamMemberError, setTeamMemberError] = useState<string | null>(null)
   const [resolvedItems, setResolvedItems] = useState<(Comment | Annotation)[]>([])
+  const [versions, setVersions] = useState<{ id: string; thumbnail: string; version: string; videoSize: number; videoType: string; videoUrl: string;}[]>([])
 
   // Add useEffect to fetch workspace data and set team members
   useEffect(() => {
-    console.log("useEffect triggered with workspaceId:", workspaceId)
+    // console.log("useEffect triggered with workspaceId:", workspaceId)
     
     const fetchWorkspaceData = async () => {
-      console.log("Starting to fetch workspace data")
+      // console.log("Starting to fetch workspace data")
       if (!workspaceId) {
-        console.log("No workspaceId provided, skipping fetch")
+        // console.log("No workspaceId provided, skipping fetch")
         return
       }
       
       try {
-        console.log("Fetching workspace document for ID:", workspaceId)
+        // console.log("Fetching workspace document for ID:", workspaceId)
         const workspaceRef = doc(db, "workspaces", workspaceId)
         const workspaceDoc = await getDoc(workspaceRef)
         
         if (workspaceDoc.exists()) {
-          console.log("Workspace document found")
+          // console.log("Workspace document found")
           const workspaceData = workspaceDoc.data()
-          console.log("Workspace data:", workspaceData)
+          // console.log("Workspace data:", workspaceData)
           
           if (workspaceData.collaborators) {
-            console.log("Setting team members:", workspaceData.collaborators)
+            // console.log("Setting team members:", workspaceData.collaborators)
             //if permission is owner don't show in the team members list
             setTeamMembers(workspaceData.collaborators)
           } else {
@@ -135,39 +137,39 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   }, [workspaceId])
 
   // Add useEffect to log team members changes
-  useEffect(() => {
-    console.log("Team members updated:", teamMembers)
-  }, [teamMembers])
+  // useEffect(() => {
+  //   console.log("Team members updated:", teamMembers)
+  // }, [teamMembers])
 
   // Add useEffect to log project changes
-  useEffect(() => {
-    console.log("Project updated:", project);
-  }, [project]);
+  // useEffect(() => {
+  //   console.log("Project updated:", project);
+  // }, [project]);
 
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        console.log("fetching video: ", projectId)
+        // console.log("fetching video: ", projectId)
         const docRef = doc(db, "projects", projectId)
-        console.log("docRef: ", docRef)
+        // console.log("docRef: ", docRef)
         const docSnap = await getDoc(docRef)
-        console.log("docSnap: ", docSnap)
+        // console.log("docSnap: ", docSnap)
         
         if (docSnap.exists()) {
-          console.log("video found")
+          // console.log("video found")
           const projectData = docSnap.data()
-          console.log("projectData: ", projectData)
+          // console.log("projectData: ", projectData)
           setProject({
             id: projectData.id,
             ...projectData,
           } as Project)
-          console.log("project: ", project)
+          // console.log("project: ", project)
           // Set comments and annotations from the video document
           setComments(projectData.comments?.sort((a: Comment, b: Comment) => 
             b.createdAt.toMillis() - a.createdAt.toMillis()
           ) || [])
           setAnnotations(projectData.annotations || [])
-          console.log("Done setting")
+          // console.log("Done setting")
         }
       } catch (error) {
         console.error("Error fetching video:", error)
@@ -175,9 +177,9 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
         setLoading(false)
       }
     }
-    console.log("Fetching video")
+    // console.log("Fetching video")
     fetchVideo()
-    console.log("Done fetching")
+    // console.log("Done fetching")
   }, [projectId])
 
   useEffect(() => {
@@ -185,6 +187,48 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     const resolvedAnnotations = annotations.filter(annotation => annotation.isResolved)
     setResolvedItems([...resolvedComments, ...resolvedAnnotations])
   }, [comments, annotations])
+
+  useEffect(() => {
+    const fetchVersions = async () => {
+      if (!workspaceId || !projectId) return;
+      
+      try {
+        console.log("fetching versions")
+        const workspaceRef = doc(db, "workspaces", workspaceId);
+        const workspaceDoc = await getDoc(workspaceRef);
+        console.log("workspaceDoc retrieved")
+        if (workspaceDoc.exists()) {
+          const workspaceData = workspaceDoc.data();
+          console.log("workspaceData retrieved")
+          // go through all the versions in the worksapce and find the version that has the same as projectId.
+          let projectVersions: any[] = [];
+          for(const project of workspaceData.projects){
+            console.log("project: ", project)
+            for(const version of project.versions){
+              console.log("version: ", version)
+              if(version.id === projectId){
+                // Push only the matching version's parent project versions
+                projectVersions = project.versions;
+                break;
+              }
+            }
+          }
+          // Sort versions by version number, newest first
+          const sortedVersions = projectVersions.sort((a: any, b: any) => 
+            parseInt(b.version) - parseInt(a.version)
+          );
+          console.log("sortedVersions: ", sortedVersions)
+          console.log("projectVersions: ", projectVersions)
+          
+          setVersions(sortedVersions);
+        }
+      } catch (error) {
+        console.error("Error fetching versions:", error);
+      }
+    };
+
+    fetchVersions();
+  }, [workspaceId, projectId]);
 
   const handleResolveComment = async (commentId: string) => {
     if (!project) return
@@ -765,43 +809,44 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
           </div>
 
           {/* Comments and Annotations Section */}
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm h-[calc(100vh-5rem)]">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-gray-400" />
-                <h2 className="text-lg font-medium text-gray-900">Comments & Annotations</h2>
+          <div className="space-y-6">
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm h-[calc(100vh-5rem)]">
+              <div className="border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-gray-400" />
+                  <h2 className="text-lg font-medium text-gray-900">Comments & Annotations</h2>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-col h-[calc(90vh-5rem)]">
-              {/* Timeline Items */}
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                {[...comments, ...annotations]
-                  .filter(item => !item.isResolved)
-                  .sort((a, b) => 
-                    b.createdAt.toMillis() - a.createdAt.toMillis()
-                  ).map(item => {
-                  if ('data' in item) {
-                    // Render annotation
-                    return (
-                      <div
-                        key={item.id}
-                        className={`group relative mb-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md cursor-pointer ${
-                          item.id === selectedAnnotation?.id
-                            ? "border-primary bg-primary/5"
-                            : "border-gray-200"
-                        }`}
-                        onClick={() => handleAnnotationClick(item)}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={item.userImageUrl} alt={item.userName} />
-                            <AvatarFallback>{item.userName[0]}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium">{item.userName}</span>
-                          <Badge variant="secondary" className="ml-auto">
-                            {item.timeFormatted.toString().substring(0, item.timeFormatted.toString().length-2)}
-                          </Badge>
+              <div className="flex flex-col h-[calc(90vh-5rem)]">
+                {/* Timeline Items */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                  {[...comments, ...annotations]
+                    .filter(item => !item.isResolved)
+                    .sort((a, b) => 
+                      b.createdAt.toMillis() - a.createdAt.toMillis()
+                    ).map(item => {
+                    if ('data' in item) {
+                      // Render annotation
+                      return (
+                        <div
+                          key={item.id}
+                          className={`group relative mb-4 rounded-lg border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md cursor-pointer ${
+                            item.id === selectedAnnotation?.id
+                              ? "border-primary bg-primary/5"
+                              : "border-gray-200"
+                          }`}
+                          onClick={() => handleAnnotationClick(item)}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={item.userImageUrl} alt={item.userName} />
+                              <AvatarFallback>{item.userName[0]}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium">{item.userName}</span>
+                            <Badge variant="secondary" className="ml-auto">
+                              {item.timeFormatted.toString().substring(0, item.timeFormatted.toString().length-2)}
+                            </Badge>
                     <Button
                             variant="ghost"
                       size="sm"
@@ -813,102 +858,151 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           >
                             <CheckCircle className="h-5 w-5" />
                     </Button>
+                          </div>
+                          <div className="aspect-video overflow-hidden rounded-md">
+                            <img
+                              src={item.data}
+                              alt={`Annotation at ${item.timeFormatted}`}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
                         </div>
-                        <div className="aspect-video overflow-hidden rounded-md">
-                          <img
-                            src={item.data}
-                            alt={`Annotation at ${item.timeFormatted}`}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      </div>
-                    )
-                  } else {
-                    // Render comment
-                    return (
-                      <VideoComment
-                        key={item.id}
-                        user={{
-                          id: item.userId,
-                          name: item.userName,
-                          imageUrl: item.userImageUrl
-                        }}
-                        content={item.content}
-                        time={new Date(item.createdAt.toDate()).toLocaleString()}
-                        timestamp={item.timestamp || undefined}
-                        isResolved={item.isResolved}
-                        resolvedBy={item.resolved ? {
-                          id: item.resolved.id,
-                          name: item.resolved.userName,
-                          imageUrl: item.resolved.userImageUrl
-                        } : undefined}
-                        onResolve={() => handleResolveComment(item.id)}
-                        onClick={() => handleCommentClick(item)}
-                      />
-                    )
-                  }
-                })}
-                  </div>
-
-              {/* Comment Input */}
-              <div className="border-t border-gray-200 bg-white p-4">
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.imageUrl} alt={user?.fullName || ''} />
-                    <AvatarFallback>{user?.fullName?.[0] || user?.username?.[0] || 'U'}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-gray-100 font-mono">
-                        {formatTime(currentTime)}
-                      </Badge>
-                      <span className="text-xs text-gray-500">Type @time to add timestamp</span>
-                    </div>
-                    <div className="relative">
-                      <textarea
-                        placeholder="Add a comment..."
-                        value={commentInput}
-                        onChange={(e) => {
-                          const newValue = e.target.value;
-                          const cursorPosition = e.target.selectionStart;
-                          
-                          // Only delete @time if we're deleting and cursor is at position 5 (right after @time)
-                          if (newValue.length < commentInput.length && 
-                              commentInput.startsWith("@time") && 
-                              cursorPosition === 5) {
-                            setCommentInput(newValue.replace(/^@time\s*/, ''));
-                          } else {
-                            setCommentInput(newValue);
-                          }
-                        }}
-                        className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                        rows={3}
-                      />
-                      {commentInput.startsWith("@time") && (
-                        <div 
-                          className="absolute top-2 left-2 text-sm pointer-events-none"
-                          style={{ 
-                            background: 'white',
-                            width: '42px',
-                            color: '#2563eb'
+                      )
+                    } else {
+                      // Render comment
+                      return (
+                        <VideoComment
+                          key={item.id}
+                          user={{
+                            id: item.userId,
+                            name: item.userName,
+                            imageUrl: item.userImageUrl
                           }}
+                          content={item.content}
+                          time={new Date(item.createdAt.toDate()).toLocaleString()}
+                          timestamp={item.timestamp || undefined}
+                          isResolved={item.isResolved}
+                          resolvedBy={item.resolved ? {
+                            id: item.resolved.id,
+                            name: item.resolved.userName,
+                            imageUrl: item.resolved.userImageUrl
+                          } : undefined}
+                          onResolve={() => handleResolveComment(item.id)}
+                          onClick={() => handleCommentClick(item)}
+                        />
+                      )
+                    }
+                  })}
+                </div>
+
+                {/* Comment Input */}
+                <div className="border-t border-gray-200 bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.imageUrl} alt={user?.fullName || ''} />
+                      <AvatarFallback>{user?.fullName?.[0] || user?.username?.[0] || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-gray-100 font-mono">
+                          {formatTime(currentTime)}
+                        </Badge>
+                        <span className="text-xs text-gray-500">Type @time to add timestamp</span>
+                      </div>
+                      <div className="relative">
+                        <textarea
+                          placeholder="Add a comment..."
+                          value={commentInput}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            const cursorPosition = e.target.selectionStart;
+                            
+                            // Only delete @time if we're deleting and cursor is at position 5 (right after @time)
+                            if (newValue.length < commentInput.length && 
+                                commentInput.startsWith("@time") && 
+                                cursorPosition === 5) {
+                              setCommentInput(newValue.replace(/^@time\s*/, ''));
+                            } else {
+                              setCommentInput(newValue);
+                            }
+                          }}
+                          className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                          rows={3}
+                        />
+                        {commentInput.startsWith("@time") && (
+                          <div 
+                            className="absolute top-2 left-2 text-sm pointer-events-none"
+                            style={{ 
+                              background: 'white',
+                              width: '42px',
+                              color: '#2563eb'
+                            }}
+                          >
+                            @time
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <Button
+                          size="sm"
+                          className="bg-sky-500 hover:bg-sky-600"
+                          onClick={handleAddComment}
+                          disabled={!commentInput.trim()}
                         >
-                          @time
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-2 flex justify-end">
-                      <Button
-                        size="sm"
-                        className="bg-sky-500 hover:bg-sky-600"
-                        onClick={handleAddComment}
-                        disabled={!commentInput.trim()}
-                      >
-                        Add Comment
-                      </Button>
+                          Add Comment
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Versions List */}
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-200 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-gray-400" />
+                  <h2 className="text-lg font-medium text-gray-900">Version History</h2>
+                </div>
+              </div>
+              <div className="px-6 py-4">
+                {versions.length === 0 ? (
+                  <p className="text-sm text-gray-500">No previous versions found</p>
+                ) : (
+                  <div className="space-y-3">
+                    {versions.map((version, index) => (
+                      <div 
+                        key={version.id}
+                        className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                            <span className="text-sm font-medium">v{version.version}</span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {version.videoType} • {(version.videoSize / (1024 * 1024)).toFixed(2)} MB
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Version {version.version}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <Link 
+                          href={`/dashboard/video/${version.id}?workspaceId=${workspaceId}`}
+                          className="text-sm font-medium text-sky-600 hover:text-sky-700"
+                        >
+                          View
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
