@@ -982,13 +982,6 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              {version.thumbnail && (
-                                <img 
-                                  src={version.thumbnail} 
-                                  alt={`Version ${version.version} thumbnail`}
-                                  className="h-12 w-20 object-cover rounded"
-                                />
-                              )}
                               <div>
                                 <p className="text-sm font-medium text-gray-900">
                                   {version.videoType} • {(version.videoSize / (1024 * 1024)).toFixed(2)} MB
