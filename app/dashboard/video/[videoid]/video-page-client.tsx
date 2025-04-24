@@ -864,13 +864,39 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                       </Badge>
                       <span className="text-xs text-gray-500">Type @time to add timestamp</span>
                     </div>
-                    <textarea
-                      placeholder="Add a comment..."
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                      className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      rows={3}
-                    />
+                    <div className="relative">
+                      <textarea
+                        placeholder="Add a comment..."
+                        value={commentInput}
+                        onChange={(e) => {
+                          const newValue = e.target.value;
+                          const cursorPosition = e.target.selectionStart;
+                          
+                          // Only delete @time if we're deleting and cursor is at position 5 (right after @time)
+                          if (newValue.length < commentInput.length && 
+                              commentInput.startsWith("@time") && 
+                              cursorPosition === 5) {
+                            setCommentInput(newValue.replace(/^@time\s*/, ''));
+                          } else {
+                            setCommentInput(newValue);
+                          }
+                        }}
+                        className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        rows={3}
+                      />
+                      {commentInput.startsWith("@time") && (
+                        <div 
+                          className="absolute top-2 left-2 text-sm pointer-events-none"
+                          style={{ 
+                            background: 'white',
+                            width: '42px',
+                            color: '#2563eb'
+                          }}
+                        >
+                          @time
+                        </div>
+                      )}
+                    </div>
                     <div className="mt-2 flex justify-end">
                       <Button
                         size="sm"
