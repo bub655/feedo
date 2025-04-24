@@ -36,7 +36,7 @@ export default function ResolvedItems({ items, onItemClick }: ResolvedItemsProps
                 </Avatar>
                 <span className="text-sm font-medium">{item.userName}</span>
                 {item.timestamp && (
-                  <Badge variant="secondary" className="ml-auto">
+                  <Badge variant="secondary" className="ml-auto bg-blue-100">
                     {item.timestamp.toString().substring(0, item.timestamp.toString().length-2)}
                   </Badge>
                 )}

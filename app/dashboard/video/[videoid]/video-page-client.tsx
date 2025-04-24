@@ -800,7 +800,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
             </div>
 
             {/* Resolved Items Section */}
-            <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm max-h-[500px] overflow-y-auto">
               <ResolvedItems 
                 items={resolvedItems}
                 onItemClick={handleResolvedItemClick} 
@@ -844,7 +844,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                               <AvatarFallback>{item.userName[0]}</AvatarFallback>
                             </Avatar>
                             <span className="text-sm font-medium">{item.userName}</span>
-                            <Badge variant="secondary" className="ml-auto">
+                            <Badge variant="secondary" className="ml-auto bg-blue-100">
                               {item.timeFormatted.toString().substring(0, item.timeFormatted.toString().length-2)}
                             </Badge>
                     <Button
@@ -904,7 +904,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     </Avatar>
                     <div className="flex-1">
                       <div className="mb-2 flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-gray-100 font-mono">
+                        <Badge variant="secondary" className="bg-blue-100 font-mono">
                           {formatTime(currentTime)}
                         </Badge>
                         <span className="text-xs text-gray-500">Type @time to add timestamp</span>
