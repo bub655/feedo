@@ -58,7 +58,8 @@ export default function WorkspacePage() {
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-          const { workspaces: workspaceIds } = userDoc.data();
+          // just make all elements of the array unique
+          const workspaceIds = Array.from(new Set((userDoc.data() as {workspaces: string[]}).workspaces));
           
           if (workspaceIds && workspaceIds.length > 0) {
             // Fetch workspace details and filter out deleted workspaces
@@ -77,7 +78,7 @@ export default function WorkspacePage() {
               await setDoc(
                 userDocRef,
                 { 
-                  workspaces: validWorkspaces.map(workspace => workspace.id)
+                  workspaces: validWorkspaces.map((workspace: { id: string } | null) => workspace?.id).filter(Boolean)
                 },
                 { merge: true }
               );
