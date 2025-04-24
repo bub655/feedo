@@ -41,6 +41,8 @@ import AnnotationCanvas from "@/components/annotation-canvas"
 import ReuploadVideoDialog from "@/components/reupload-video-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import ResolvedItems from "@/components/resolved-items"
+import { Comment, Annotation } from "@/types/video"
 
 interface VideoPageClientProps {
   projectId: string
@@ -61,31 +63,6 @@ interface Project {
   videoSize: number,
   videoType: string,
   videoUrl: string,
-}
-
-interface Comment {
-  id: string
-  content: string
-  timestamp: string | null
-  createdAt: Timestamp
-  userId: string
-  userName: string
-  userImageUrl: string
-  isResolved: boolean
-  resolved: Resolver | null
-}
-
-interface Annotation {
-  id: string
-  data: string
-  timestamp: string
-  timeFormatted: string
-  createdAt: Timestamp
-  userId: string
-  userName: string
-  userImageUrl: string
-  isResolved: boolean
-  resolved: Resolver | null
 }
 
 interface Resolver {
@@ -116,6 +93,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const [newTeamMemberPermission, setNewTeamMemberPermission] = useState("viewer")
   const [teamMembers, setTeamMembers] = useState<{ email: string; permission: string }[]>([])
   const [teamMemberError, setTeamMemberError] = useState<string | null>(null)
+  const [resolvedItems, setResolvedItems] = useState<(Comment | Annotation)[]>([])
 
   // Add useEffect to fetch workspace data and set team members
   useEffect(() => {
@@ -201,6 +179,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     fetchVideo()
     console.log("Done fetching")
   }, [projectId])
+
+  useEffect(() => {
+    const resolvedComments = comments.filter(comment => comment.isResolved)
+    const resolvedAnnotations = annotations.filter(annotation => annotation.isResolved)
+    setResolvedItems([...resolvedComments, ...resolvedAnnotations])
+  }, [comments, annotations])
 
   const handleResolveComment = async (commentId: string) => {
     if (!project) return
@@ -521,6 +505,25 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     }
   }
 
+  const handleResolvedItemClick = (item: Comment | Annotation) => {
+    // If it's an annotation, set it as selected
+    if ('data' in item) {
+      setSelectedAnnotation(item);
+    }
+
+    if (item.timestamp) {
+      const [minutesPart, secondsPart] = item.timestamp.split(':')
+      const [seconds, milliseconds = '0'] = secondsPart.split('.')
+      const timeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
+      setSeekTo(timeInMs / 1000)
+      setIsPlaying(false)
+      const video = document.querySelector('video')
+      if (video) {
+        video.pause()
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -702,7 +705,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                 <div>
                   <h2 className="text-lg font-medium text-gray-900">Project Details</h2>
                   <p className="text-sm text-gray-500">Last updated: {new Date(project.updatedAt).toLocaleDateString()}</p>
-                  </div>
+                </div>
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
@@ -713,11 +716,11 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     <Download className="h-4 w-4" />
                     Download
                   </Button>
-            </div>
-          </div>
+                </div>
+              </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
-              <div>
+                <div>
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-4 w-4 text-gray-400" />
                     <span className="text-gray-500">Client:</span>
@@ -743,7 +746,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                 </div>
               </div>
 
-                <div className="mt-4">
+              <div className="mt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Progress</span>
                   <span className="text-sm font-medium text-gray-900">{project.progress}%</span>
@@ -751,10 +754,18 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                 <Progress value={project.progress} className="mt-1" />
               </div>
             </div>
+
+            {/* Resolved Items Section */}
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ResolvedItems 
+                items={resolvedItems}
+                onItemClick={handleResolvedItemClick} 
+              />
+            </div>
           </div>
 
           {/* Comments and Annotations Section */}
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm h-[calc(100vh-5rem)]">
             <div className="border-b border-gray-200 px-6 py-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-gray-400" />
@@ -765,9 +776,11 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
             <div className="flex flex-col h-[calc(90vh-5rem)]">
               {/* Timeline Items */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
-                {[...comments, ...annotations].sort((a, b) => 
-                  b.createdAt.toMillis() - a.createdAt.toMillis()
-                ).map(item => {
+                {[...comments, ...annotations]
+                  .filter(item => !item.isResolved)
+                  .sort((a, b) => 
+                    b.createdAt.toMillis() - a.createdAt.toMillis()
+                  ).map(item => {
                   if ('data' in item) {
                     // Render annotation
                     return (
