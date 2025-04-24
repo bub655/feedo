@@ -45,11 +45,9 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       const video = document.createElement('video')
       console.log("Video Element Created")
       
-      // Set video attributes for Safari
+      // Set only necessary video attributes for thumbnail generation
       video.setAttribute('playsinline', '')
-      video.setAttribute('webkit-playsinline', '')
-      video.setAttribute('muted', '')
-      video.setAttribute('autoplay', '')
+      video.setAttribute('muted', 'true')
       video.setAttribute('preload', 'metadata')
       
       // Create a FileReader to read the file
