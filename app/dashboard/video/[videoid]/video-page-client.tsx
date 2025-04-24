@@ -13,7 +13,8 @@ import {
   serverTimestamp,
   Timestamp,
   FieldValue,
-  increment
+  increment,
+  setDoc
 } from "firebase/firestore"
 import {
   ChevronLeft,
@@ -512,10 +513,18 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       })
 
       //need to UID too
-      const userDocRef = doc(db, "users", newTeamMember)
-      await updateDoc(userDocRef, {
-        workspaces: arrayUnion(workspaceId)
-      })
+      const userDocRef = doc(db, "UID", newTeamMember)
+      const userDoc = await getDoc(userDocRef)
+      
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          workspaces: [workspaceId]
+        })
+      } else {
+        await updateDoc(userDocRef, {
+          workspaces: arrayUnion(workspaceId)
+        })
+      }
 
       setTeamMembers(prev => [...prev, newMember])
       setNewTeamMember("")
@@ -538,7 +547,10 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       })
 
       //need to remove from UID too
-      const userDocRef = doc(db, "users", email)
+      const data = await getDoc(doc(db, "UID", email))
+      console.log("removing team member: ", email)
+      console.log("workspaces: ", data.data())
+      const userDocRef = doc(db, "UID", email)
       await updateDoc(userDocRef, {
         workspaces: arrayRemove(workspaceId)
       })
@@ -710,8 +722,8 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                         >
                           Copy Link
                 </Button>
-                      </div>
-                    </div>
+              </div>
+            </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -760,11 +772,11 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     <Download className="h-4 w-4" />
                     Download
                   </Button>
-                </div>
-              </div>
+          </div>
+          </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
-                <div>
+              <div>
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-4 w-4 text-gray-400" />
                     <span className="text-gray-500">Client:</span>
@@ -790,7 +802,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                 </div>
               </div>
 
-              <div className="mt-4">
+                <div className="mt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Progress</span>
                   <span className="text-sm font-medium text-gray-900">{project.progress}%</span>
@@ -815,7 +827,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5 text-gray-400" />
                   <h2 className="text-lg font-medium text-gray-900">Comments & Annotations</h2>
-                </div>
+            </div>
               </div>
 
               <div className="flex flex-col h-[calc(90vh-5rem)]">
@@ -858,7 +870,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           >
                             <CheckCircle className="h-5 w-5" />
                     </Button>
-                          </div>
+            </div>
                           <div className="aspect-video overflow-hidden rounded-md">
                             <img
                               src={item.data}
@@ -871,9 +883,9 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     } else {
                       // Render comment
                       return (
-                        <VideoComment
+                  <VideoComment
                           key={item.id}
-                          user={{
+                    user={{
                             id: item.userId,
                             name: item.userName,
                             imageUrl: item.userImageUrl
@@ -910,7 +922,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                         <span className="text-xs text-gray-500">Type @time to add timestamp</span>
                       </div>
                       <div className="relative">
-                        <textarea
+                      <textarea
                           placeholder="Add a comment..."
                           value={commentInput}
                           onChange={(e) => {
@@ -927,7 +939,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                             }
                           }}
                           className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                          rows={3}
+                        rows={3}
                         />
                         {commentInput.startsWith("@time") && (
                           <div 
@@ -955,8 +967,8 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+                  </div>
+                </div>
 
             {/* Versions List */}
             <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -965,7 +977,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   <Clock className="h-5 w-5 text-gray-400" />
                   <h2 className="text-lg font-medium text-gray-900">Version History</h2>
                 </div>
-              </div>
+                  </div>
               <div className="px-6 py-4">
                 {versions.length === 0 ? (
                   <p className="text-sm text-gray-500">No previous versions found</p>
@@ -979,19 +991,19 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-600">
                             <span className="text-sm font-medium">v{version.version}</span>
-                          </div>
+                </div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div>
+                      <div className="flex items-center gap-2">
+                        <div>
                                 <p className="text-sm font-medium text-gray-900">
                                   {version.videoType} • {(version.videoSize / (1024 * 1024)).toFixed(2)} MB
                                 </p>
                                 <p className="text-xs text-gray-500">
                                   Version {version.version}
                                 </p>
-                              </div>
-                            </div>
-                          </div>
+                        </div>
+                    </div>
+                  </div>
                         </div>
                         <Link 
                           href={`/dashboard/video/${version.id}?workspaceId=${workspaceId}`}
@@ -1004,10 +1016,10 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
       <ReuploadVideoDialog
         isOpen={isReuploadDialogOpen}
         onClose={() => setIsReuploadDialogOpen(false)}
