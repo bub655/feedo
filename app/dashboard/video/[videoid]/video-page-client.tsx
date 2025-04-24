@@ -483,6 +483,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
         numMembers: increment(1)
       })
 
+      //need to UID too
+      const userDocRef = doc(db, "users", newTeamMember)
+      await updateDoc(userDocRef, {
+        workspaces: arrayUnion(workspaceId)
+      })
+
       setTeamMembers(prev => [...prev, newMember])
       setNewTeamMember("")
       setNewTeamMemberPermission("viewer")
@@ -501,6 +507,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       await updateDoc(docRef, {
         collaborators: updatedMembers,
         numMembers: increment(-1)
+      })
+
+      //need to remove from UID too
+      const userDocRef = doc(db, "users", email)
+      await updateDoc(userDocRef, {
+        workspaces: arrayRemove(workspaceId)
       })
 
       setTeamMembers(updatedMembers)
