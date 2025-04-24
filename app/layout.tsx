@@ -13,9 +13,11 @@ export const metadata = {
   description:
     "Simplify video feedback with timeline-linked comments, intuitive tools, and a beautiful interface designed for non-techy clients.",
   icons: {
-    icon: '/feedo-logo.ico',
-    shortcut: '/feedo-logo.ico',
-    apple: '/feedo-logo.ico',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
   },
 }
 
