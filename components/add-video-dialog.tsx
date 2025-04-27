@@ -328,13 +328,14 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       await setDoc(thumbnailRef, thumbnailDoc)
 
       const now = new Date()
+      const videoId = uuidv4()
       const videoData = {
         annotations: [],
         client: workspaceName,
         comments: [],
         createdAt: now,
         dueDate: dueDate,
-        id: uuidv4(),
+        id: videoId,
         progress: 0,
         status: "in progress",
         title: title,
@@ -346,8 +347,8 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         thumbnailId: thumbnailId,
       }
 
-      const docRef = collection(db, "projects")
-      await addDoc(docRef, videoData)
+      const videoRef = doc(db, "projects", videoId)
+      await setDoc(videoRef, videoData)
 
       onVideoAdded(videoData)
       resetForm()
