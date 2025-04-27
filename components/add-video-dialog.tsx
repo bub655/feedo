@@ -147,52 +147,152 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     }
   }
 
+  const uploadPart = async (presignedUrl: string, part: Blob, partNumber: number, type: string) => {
+    const response = await fetch(presignedUrl, {
+      method: 'PUT',
+      body: part,
+      headers: {
+        'Content-Type': type,
+      },
+    })
+    if (!response.ok) throw new Error(`Failed to upload part ${partNumber}`)
+    const etag = response.headers.get('ETag')
+    return { ETag: etag, PartNumber: partNumber }
+  }
+
   const handleUpload = async () => {
+    // start time console log
+    const startTime = new Date()
+    console.log("Start Time: ", startTime)
     if (!title || !selectedFile) return
 
     setIsUploading(true)
+    setUploadProgress(0)
+    console.log("Starting upload process...")
 
-    console.log("Due Date: ", dueDate)
     try {
-      // Get presigned URL from API
-      const response = await fetch('/api/upload/presign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: selectedFile.name,
-          contentType: selectedFile.type,
-        }),
-      })
+      const filename = title + "-" + uuidv4() + ".mp4"
+      const FILE_SIZE_THRESHOLD = 20 * 1024 * 1024 // 20MB
+      let key: string
 
-      if (!response.ok) {
-        throw new Error('Failed to get upload URL')
-      }
+      if (selectedFile.size > FILE_SIZE_THRESHOLD) {
+        // Multipart upload for large files
+        console.log("Starting multipart upload for large file")
+        const response = await fetch('/api/upload/multipart/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: filename,
+            contentType: selectedFile.type,
+          }),
+        })
 
-      const { url, fields, key, cdnUrl } = await response.json()
+        if (!response.ok) {
+          throw new Error('Failed to start multipart upload')
+        }
 
-      // Create form data with presigned fields
-      const formData = new FormData()
-      Object.entries(fields).forEach(([key, value]) => {
-        formData.append(key, value as string)
-      })
-      formData.append('file', selectedFile)
+        let {uploadId, key: uploadKey} = await response.json()
+        key = uploadKey
+        console.log("Upload ID: ", uploadId)
 
-      // Upload to S3 using presigned URL
-      const uploadResponse = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      })
+        let totalSize = selectedFile.size
+        let chunkSize = 10 * 1024 * 1024 // 10MB
+        let numChunks = Math.ceil(totalSize / chunkSize)
 
-      if (!uploadResponse.ok) {
-        throw new Error('Upload failed')
+        let presignedUrls = await fetch('/api/upload/multipart/presign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ fileName: filename, uploadId: uploadId, partNumbers: numChunks }),
+        })
+
+        if (!presignedUrls.ok) {
+          throw new Error('Failed to get presigned URLs')
+        }
+
+        let { presignedUrls: presignedUrlsData } = await presignedUrls.json()
+        console.log("Presigned URLs: ", presignedUrlsData)
+
+        let parts: any[] = []
+        const uploadPromises = []
+
+        for (let i = 0; i < numChunks; i++) {
+          let start = i * chunkSize;
+          let end = Math.min(start + chunkSize, totalSize)
+          let part = selectedFile.slice(start, end)
+          let presignedUrl = presignedUrlsData[i]
+
+          uploadPromises.push(uploadPart(presignedUrl, part, i + 1, selectedFile.type))
+        }
+
+        const uploadResponses = await Promise.all(uploadPromises)
+        uploadResponses.forEach((response, i) => {
+          parts.push({
+            ETag: response.ETag,
+            PartNumber: response.PartNumber,
+          })
+        })
+
+        const completeResponse = await fetch('/api/upload/multipart/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filename: filename, uploadId: uploadId, parts: parts }),
+        })
+
+        if (!completeResponse.ok) {
+          throw new Error('Failed to complete multipart upload')
+        }
+
+        let { data } = await completeResponse.json()
+        console.log("Complete Response: ", data)
+      } else {
+        // Single upload for small files
+        console.log("Starting single upload for small file")
+        const response = await fetch('/api/upload/presign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: filename,
+            contentType: selectedFile.type,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to get upload URL')
+        }
+
+        const { url, fields, key: uploadKey } = await response.json()
+        key = uploadKey
+
+        const formData = new FormData()
+        Object.entries(fields).forEach(([key, value]) => {
+          formData.append(key, value as string)
+        })
+        formData.append('file', selectedFile)
+
+        const uploadResponse = await fetch(url, {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed')
+        }
       }
 
       // Generate thumbnail and get duration
+      console.log("Generating thumbnail")
       const thumbnail = await generateVideoThumbnail(selectedFile)
-      console.log("Generated Thumbnail")
+      console.log("Thumbnail generated")
       const duration = await getVideoDurationInSeconds(selectedFile)
+      console.log("Duration: ", duration)
 
       // Create thumbnail document first
       const thumbnailId = uuidv4()
@@ -202,39 +302,10 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         createdAt: serverTimestamp(),
       }
       
-      // Add thumbnail to Firestore
-      const thumbnailRef = doc(db, "thumbnails", thumbnailId)
-      await setDoc(thumbnailRef, thumbnailDoc)
-
-      const now = new Date()
-      const videoData = {
-        annotations: [],
-        client: workspaceName,
-        comments: [],
-        createdAt: now,
-        dueDate: dueDate,
-        id: uuidv4(),
-        progress: 0,
-        status: "in progress",
-        title: title,
-        updatedAt: now,
-        videoDuration: duration,
-        videoSize: selectedFile.size,
-        videoType: selectedFile.type,
-        videoUrl: key,
-        thumbnailId: thumbnailId, // Reference to the thumbnail document
-      }
-
-      console.log("Video Data: ", videoData)
-      // Add to Firestore
-      const docRef = doc(db, "projects", videoData.id)
-      await setDoc(docRef, videoData)
-
-      // Pass the video data to the parent component
-      onVideoAdded(videoData)
+      
       resetForm()
     } catch (error) {
-      console.error("Error uploading video:", error)
+      console.error("Error in upload process:", error)
       setIsUploading(false)
       setUploadProgress(0)
     }

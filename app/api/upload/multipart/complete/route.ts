@@ -33,10 +33,15 @@ export async function POST(request: Request) {
     }
 
     console.log("Complete params:", params)
-
     try {
         const data = await s3.completeMultipartUpload(params).promise()
-        return NextResponse.json({ data })
+        return NextResponse.json({ 
+            success: true,
+            url: data.Location,
+            fields: {},
+            key: key,
+            cdnUrl: `${process.env.NEXT_PUBLIC_AWS_CDN_URL}${key}`
+        })
     } catch (error) {
         console.error("Error completing multipart upload:", error)
         return NextResponse.json({ 
