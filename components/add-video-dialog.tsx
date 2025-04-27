@@ -302,7 +302,32 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         createdAt: serverTimestamp(),
       }
       
-      
+      const thumbnailRef = doc(db, "thumbnails", thumbnailId)
+      await setDoc(thumbnailRef, thumbnailDoc)
+
+      const now = new Date()
+      const videoData = {
+        annotations: [],
+        client: workspaceName,
+        comments: [],
+        createdAt: now,
+        dueDate: dueDate,
+        id: uuidv4(),
+        progress: 0,
+        status: "in progress",
+        title: title,
+        updatedAt: now,
+        videoDuration: duration,
+        videoSize: selectedFile.size,
+        videoType: selectedFile.type,
+        videoUrl: key,
+        thumbnailId: thumbnailId,
+      }
+
+      const docRef = doc(db, "projects", videoData.id)
+      await setDoc(docRef, videoData)
+
+      onVideoAdded(videoData)
       resetForm()
     } catch (error) {
       console.error("Error in upload process:", error)
