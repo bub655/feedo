@@ -69,7 +69,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
           console.log("Video Height:", video.videoHeight)
           
           // Set current time to 1 second or duration if less than 1 second
-          video.currentTime = Math.min(1, video.duration)
+          video.currentTime = Math.min(0.1, video.duration/2)
         })
 
         video.addEventListener('seeked', () => {
@@ -193,9 +193,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
           throw new Error('Failed to start multipart upload')
         }
 
-        let {uploadId, key: uploadKey} = await response.json()
-        key = uploadKey
-        console.log("Upload ID: ", uploadId)
+        let {uploadId} = await response.json()
 
         let totalSize = selectedFile.size
         let chunkSize = 10 * 1024 * 1024 // 10MB
@@ -248,7 +246,9 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
           throw new Error('Failed to complete multipart upload')
         }
 
-        let { data } = await completeResponse.json()
+        let { data, key: uploadKey, fields, cdnUrl } = await completeResponse.json()
+        key = uploadKey
+        console.log("MULTIPART UPLOAD KEY: ", key)
         console.log("Complete Response: ", data)
       } else {
         // Single upload for small files
@@ -270,7 +270,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
 
         const { url, fields, key: uploadKey } = await response.json()
         key = uploadKey
-
+        console.log("Single Upload Key: ", key)
         const formData = new FormData()
         Object.entries(fields).forEach(([key, value]) => {
           formData.append(key, value as string)
@@ -288,9 +288,16 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       }
 
       // Generate thumbnail and get duration
+      console.log("THE PATH SHOULD BE: ", key)
       console.log("Generating thumbnail")
-      const thumbnail = await generateVideoThumbnail(selectedFile)
-      console.log("Thumbnail generated")
+      let thumbnail: string
+      try {
+        thumbnail = await generateVideoThumbnail(selectedFile)
+        console.log("Thumbnail generated")
+      } catch (error) {
+        console.error("Failed to generate thumbnail, using placeholder:", error)
+        thumbnail = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" // 1x1 transparent PNG
+      }
       const duration = await getVideoDurationInSeconds(selectedFile)
       console.log("Duration: ", duration)
 
@@ -324,8 +331,8 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
         thumbnailId: thumbnailId,
       }
 
-      const docRef = doc(db, "projects", videoData.id)
-      await setDoc(docRef, videoData)
+      const docRef = collection(db, "projects")
+      await addDoc(docRef, videoData)
 
       onVideoAdded(videoData)
       resetForm()
