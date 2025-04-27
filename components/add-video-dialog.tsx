@@ -45,76 +45,92 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       const video = document.createElement('video')
       console.log("Video Element Created")
       
-      // Set only necessary video attributes for thumbnail generation
       video.setAttribute('playsinline', '')
       video.setAttribute('muted', 'true')
-      video.setAttribute('preload', 'metadata')
+      video.setAttribute('preload', 'auto')
       
-      // Create a FileReader to read the file
-      const reader = new FileReader()
+      const timeout = setTimeout(() => {
+        console.error("Thumbnail generation timed out")
+        URL.revokeObjectURL(video.src)
+        reject(new Error('Thumbnail generation timed out'))
+      }, 10000) // 10 second timeout
       
-      reader.onload = (e) => {
-        if (!e.target?.result) {
-          reject(new Error('Failed to read file'))
-          return
-        }
+      video.addEventListener('loadedmetadata', () => {
+        console.log("Loaded Metadata")
+        console.log("Video Duration:", video.duration)
+        console.log("Original Video Width:", video.videoWidth)
+        console.log("Original Video Height:", video.videoHeight)
         
-        const videoUrl = e.target.result as string
-        console.log("Created Video URL from FileReader")
+        // Set video size to a reasonable size for thumbnail
+        const maxSize = 320
+        const scale = Math.min(maxSize / video.videoWidth, maxSize / video.videoHeight)
+        video.width = video.videoWidth * scale
+        video.height = video.videoHeight * scale
+        console.log("Scaled Video Width:", video.width)
+        console.log("Scaled Video Height:", video.height)
         
-        video.addEventListener('loadedmetadata', () => {
-          console.log("Loaded Metadata")
-          console.log("Video Duration:", video.duration)
-          console.log("Video Width:", video.videoWidth)
-          console.log("Video Height:", video.videoHeight)
-          
-          // Set current time to 1 second or duration if less than 1 second
-          video.currentTime = Math.min(0.1, video.duration/2)
-        })
+        // Seek to 10% of the video duration
+        const seekTime = Math.max(1, video.duration * 0.1)
+        console.log("Seeking to time:", seekTime)
+        video.currentTime = seekTime
+      })
 
-        video.addEventListener('seeked', () => {
-          console.log("Seeked")
+      video.addEventListener('seeked', () => {
+        console.log("Seeked to position")
+        // Add a small delay to ensure the frame is ready
+        setTimeout(() => {
+          console.log("Creating canvas after delay")
           const canvas = document.createElement('canvas')
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
+          canvas.width = video.width
+          canvas.height = video.height
+          console.log("Canvas size:", canvas.width, "x", canvas.height)
+          
           const ctx = canvas.getContext('2d')
           if (ctx) {
             console.log("Drawing Image")
+            // Fill background with white in case video is transparent
+            ctx.fillStyle = 'white'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            resolve(canvas.toDataURL('image/jpeg'))
+            console.log("Image drawn, converting to data URL")
+            // Use lower quality for faster processing
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+            console.log("Generated data URL")
+            URL.revokeObjectURL(video.src)
+            clearTimeout(timeout)
+            resolve(dataUrl)
           } else {
+            console.error("Could not create canvas context")
+            URL.revokeObjectURL(video.src)
+            clearTimeout(timeout)
             reject(new Error('Could not create canvas context'))
           }
-        })
+        }, 100) // Small delay to ensure frame is ready
+      })
 
-        video.addEventListener('error', (e) => {
-          console.error("Video Error:", e)
-          reject(new Error('Error loading video'))
-        })
+      video.addEventListener('error', (e) => {
+        console.error("Video Error:", e)
+        URL.revokeObjectURL(video.src)
+        clearTimeout(timeout)
+        reject(new Error('Error loading video'))
+      })
 
-        video.addEventListener('stalled', () => {
-          console.log("Video Stalled")
-        })
+      video.addEventListener('stalled', () => {
+        console.log("Video Stalled")
+      })
 
-        video.addEventListener('suspend', () => {
-          console.log("Video Suspend")
-        })
+      video.addEventListener('suspend', () => {
+        console.log("Video Suspend")
+      })
 
-        video.src = videoUrl
-        console.log("Set Video Source")
-        
-        // Try to force load
-        video.load()
-        console.log("Called video.load()")
-      }
-
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'))
-      }
-
-      // Read the file as a data URL
-      reader.readAsDataURL(file)
-      console.log("Started reading file")
+      const objectUrl = URL.createObjectURL(file)
+      console.log("Created Object URL")
+      video.src = objectUrl
+      console.log("Set Video Source")
+      
+      // Try to force load
+      video.load()
+      console.log("Called video.load()")
     })
   }
 
@@ -161,7 +177,6 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   }
 
   const handleUpload = async () => {
-    // start time console log
     const startTime = new Date()
     console.log("Start Time: ", startTime)
     if (!title || !selectedFile) return
