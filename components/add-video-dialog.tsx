@@ -350,6 +350,9 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       const videoRef = doc(db, "projects", videoId)
       await setDoc(videoRef, videoData)
 
+      const endTime = new Date()
+      console.log("end time: ", endTime)
+      console.log("time taken in milliseconds: ", endTime.getTime() - startTime.getTime())
       onVideoAdded(videoData)
       resetForm()
     } catch (error) {
