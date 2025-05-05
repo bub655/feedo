@@ -52,9 +52,10 @@ interface WorkspaceItemProps {
   isExpanded: boolean
   workspaceId: string
   onToggle: () => void
+  storageLeft: number // in GB
 }
 
-export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onToggle }: WorkspaceItemProps) {
+export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onToggle, storageLeft }: WorkspaceItemProps) {
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
   const { user } = useUser()
   const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
@@ -90,17 +91,17 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
         updatedAt: videoData.updatedAt,
         versions: [version]
       }
-      console.log("workspaceProject", workspaceProject)
-      console.log("workspace", workspaceId)
+      // console.log("workspaceProject", workspaceProject)
+      // console.log("workspace", workspaceId)
       // Update workspace in Firestore
       const workspaceRef = doc(db, "workspaces", workspaceId)
-      console.log("workspaceRef", workspaceRef)
+      // console.log("workspaceRef", workspaceRef)
       await updateDoc(workspaceRef, {
         projects: [workspaceProject, ...(workspace.projects || [])],
         videos: (workspace.videos || 0) + 1,
         size: (workspace.size || 0) + videoData.videoSize
       })
-      console.log("workspace updated")
+      // console.log("workspace updated")
       // Update local state
       workspace.projects = [workspaceProject, ...(workspace.projects || [])]
       workspace.videos = (workspace.videos || 0) + 1
@@ -132,7 +133,11 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
         </div>
 
         <div className="flex items-center gap-2">
-          {canEdit && <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />}
+          {canEdit && <AddVideoDialog 
+            workspaceName={workspace.name} 
+            onVideoAdded={handleVideoAdded} 
+            storageLeft={storageLeft}
+          />}
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (
@@ -160,6 +165,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
                 workspaceName={workspace.name}
                 buttonText="Add Your First Video"
                 onVideoAdded={handleVideoAdded}
+                storageLeft={storageLeft}
               />}
             </div>
           )}

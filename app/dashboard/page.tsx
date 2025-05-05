@@ -33,19 +33,30 @@ export default function WorkspacePage() {
   const [expandedWorkspace, setExpandedWorkspace] = useState<string | null>(null)
   const [workspaces, setWorkspaces] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [userTier, setUserTier] = useState<string>("free")
+  const [storageUsed, setStorageUsed] = useState<number>(0)
+  const [isStorageLoading, setIsStorageLoading] = useState(true)
 
-  // Add useEffect to log workspaces changes
-  useEffect(() => {
-    console.log("Workspaces updated:", workspaces);
-  }, [workspaces]);
-
-  // Storage and stats data
-  const storageUsed = 35 // percentage
-  const storageTotal = 50 // GB
-  const storageLeft = storageTotal - (storageTotal * storageUsed) / 100
+  // Stats data
   const pendingReviews = 5
   const completedProjects = 18
   const activeProjects = 24
+
+  // Storage limits based on tier
+  const getStorageLimit = (tier: string) => {
+    switch (tier) {
+      case "premium":
+        return 2048 // 2TB
+      case "enterprise":
+        return 8192 // 8TB
+      default: // free
+        return 2 // 2GB
+    }
+  }
+
+  const storageTotal = getStorageLimit(userTier)
+  const storageLeft = storageTotal - storageUsed
+  const storageUsedPercentage = (storageUsed / storageTotal) * 100
 
   const { user } = useUser()
 
@@ -53,6 +64,7 @@ export default function WorkspacePage() {
     const fetchWorkspaces = async () => {
       if (!user) return;
       setIsLoading(true);
+      setIsStorageLoading(true);
       try {
         const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
         const userDoc = await getDoc(userDocRef);
@@ -62,11 +74,16 @@ export default function WorkspacePage() {
           const workspaceIds = Array.from(new Set((userDoc.data() as {workspaces: string[]}).workspaces));
           
           if (workspaceIds && workspaceIds.length > 0) {
+            // Reset storage used before calculating
+            setStorageUsed(0);
+            
             // Fetch workspace details and filter out deleted workspaces
             const fetchedWorkspaces = await Promise.all(
               workspaceIds.map(async (workspaceId: string) => {
                 const workspaceDocRef = doc(db, "workspaces", workspaceId);
                 const workspaceDoc = await getDoc(workspaceDocRef);
+                // Update storage used
+                setStorageUsed(prev => prev + (workspaceDoc.data()?.size || 0) / (1024 * 1024 * 1024)); // Convert bytes to GB
                 return workspaceDoc.exists() ? { id: workspaceId, ...workspaceDoc.data() } : null;
               })
             );
@@ -91,10 +108,30 @@ export default function WorkspacePage() {
         console.error("Error fetching workspaces:", error);
       } finally {
         setIsLoading(false);
+        setIsStorageLoading(false);
       }
     };
 
     fetchWorkspaces();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+      try {
+        const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserTier(userData.tier || "free");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
   }, [user]);
 
   const handleAddTeamMember = () => {
@@ -307,11 +344,19 @@ export default function WorkspacePage() {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Storage Usage</span>
-              <span className="text-sm font-medium text-gray-700">
-                {storageUsed}% of {storageTotal}GB used ({storageLeft.toFixed(1)}GB left)
-              </span>
+              {isStorageLoading ? (
+                <div className="h-4 w-32 bg-gray-200 animate-pulse rounded" />
+              ) : (
+                <span className="text-sm font-medium text-gray-700">
+                  {storageUsedPercentage.toFixed(1)}% of {storageTotal}GB used ({storageLeft?.toFixed(2)}GB left)
+                </span>
+              )}
             </div>
-            <Progress value={storageUsed} className="h-2" />
+            {isStorageLoading ? (
+              <div className="h-2 w-full bg-gray-200 animate-pulse rounded" />
+            ) : (
+              <Progress value={storageUsedPercentage} className="h-2" />
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -322,7 +367,11 @@ export default function WorkspacePage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Storage Left</p>
-                  <p className="font-semibold text-gray-900">{storageLeft.toFixed(1)}GB</p>
+                  {isStorageLoading ? (
+                    <div className="h-5 w-16 bg-gray-200 animate-pulse rounded" />
+                  ) : (
+                    <p className="font-semibold text-gray-900">{storageLeft?.toFixed(2)}GB</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -398,6 +447,7 @@ export default function WorkspacePage() {
                 workspaceId={workspace.id}
                 isExpanded={expandedWorkspace === workspace.id}
                 onToggle={() => toggleWorkspace(workspace.id)}
+                storageLeft={storageLeft ?? storageTotal}
               />
             ))}
           </div>
