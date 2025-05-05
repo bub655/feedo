@@ -6,6 +6,7 @@ import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
 import { db } from "@/lib/firebase"
 import { doc, updateDoc, arrayUnion, collection, addDoc } from "firebase/firestore"
+import { useUser } from "@clerk/nextjs"
 
 interface WorkspaceProject {
   createdAt: string,
@@ -30,8 +31,8 @@ interface Version {
 }
 
 interface Collaborator {
-  name: string
   email: string
+  permission: string
 }
 
 interface Workspace {
@@ -55,6 +56,10 @@ interface WorkspaceItemProps {
 
 export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onToggle }: WorkspaceItemProps) {
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
+  const { user } = useUser()
+  const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
+  const userPermission = workspace.collaborators.find(c => c.email === userEmail)?.permission || "viewer"
+  const canEdit = userPermission === "owner" || userPermission === "editor"
 
   const handleVideoAdded = async (videoData: any) => {
     try {
@@ -127,7 +132,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
         </div>
 
         <div className="flex items-center gap-2">
-          <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />
+          {canEdit && <AddVideoDialog workspaceName={workspace.name} onVideoAdded={handleVideoAdded} />}
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (
@@ -151,11 +156,11 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
           ) : (
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">No projects in this workspace yet</p>
-              <AddVideoDialog
+              {canEdit && <AddVideoDialog
                 workspaceName={workspace.name}
                 buttonText="Add Your First Video"
                 onVideoAdded={handleVideoAdded}
-              />
+              />}
             </div>
           )}
         </div>
