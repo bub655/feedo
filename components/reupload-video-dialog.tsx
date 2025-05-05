@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Upload, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
@@ -161,11 +161,69 @@ export default function ReuploadVideoDialog({
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userTier, setUserTier] = useState<string>("free")
+  const [storageUsed, setStorageUsed] = useState<number>(0)
+
+  // Get storage limit based on tier
+  const getStorageLimit = (tier: string) => {
+    switch (tier) {
+      case "premium":
+        return 2048 // 2TB
+      case "enterprise":
+        return 8192 // 8TB
+      default: // free
+        return 2 // 2GB
+    }
+  }
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+      try {
+        const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserTier(userData.tier || "free");
+          
+          // Calculate total storage used across all workspaces
+          const workspaceIds = Array.from(new Set(userData.workspaces || []));
+          let totalStorageUsed = 0;
+          
+          for (const workspaceId of workspaceIds) {
+            const workspaceDoc = await getDoc(doc(db, "workspaces", workspaceId as string));
+            if (workspaceDoc.exists()) {
+              const workspaceData = workspaceDoc.data();
+              totalStorageUsed += (workspaceData.size || 0) / (1024 * 1024 * 1024); // Convert bytes to GB
+            }
+          }
+          
+          setStorageUsed(totalStorageUsed);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
       if (selectedFile.type.startsWith('video/')) {
+        // Check if the new file would exceed storage limit
+        const storageLimit = getStorageLimit(userTier)
+        const newFileSizeGB = selectedFile.size / (1024 * 1024 * 1024)
+        const currentVersionSizeGB = currentVersion.videoSize / (1024 * 1024 * 1024)
+        const newTotalStorage = storageUsed - currentVersionSizeGB + newFileSizeGB
+
+        if (newTotalStorage > storageLimit) {
+          setError(`This upload would exceed your storage limit of ${storageLimit}GB. Please upgrade your plan or delete some content.`)
+          return
+        }
+
         setFile(selectedFile)
         setError(null)
       } else {
@@ -175,12 +233,21 @@ export default function ReuploadVideoDialog({
   }
 
   const handleUpload = async () => {
-    // put console.log throughout this function to make it readable and see whats going on and wheere it errors
     console.log("handleUpload function called")
-    //start time
     const startTime = new Date()
     console.log("start time: ", startTime)
     if (!file || !user) return
+
+    // Double check storage limit before upload
+    const storageLimit = getStorageLimit(userTier)
+    const newFileSizeGB = file.size / (1024 * 1024 * 1024)
+    const currentVersionSizeGB = currentVersion.videoSize / (1024 * 1024 * 1024)
+    const newTotalStorage = storageUsed - currentVersionSizeGB + newFileSizeGB
+
+    if (newTotalStorage > storageLimit) {
+      setError(`This upload would exceed your storage limit of ${storageLimit}GB. Please upgrade your plan or delete some content.`)
+      return
+    }
 
     setIsUploading(true)
     setError(null)
