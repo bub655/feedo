@@ -444,6 +444,7 @@ export default function WorkspacePage() {
                 workspaceId={workspace.id}
                 isExpanded={expandedWorkspace === workspace.id}
                 onToggle={() => toggleWorkspace(workspace.id)}
+                storageLeft={storageLeft}
               />
             ))}
           </div>

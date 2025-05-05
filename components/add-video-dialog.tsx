@@ -19,14 +19,16 @@ import {
 import { db } from "@/lib/firebase"
 import { collection, addDoc, doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { storageService } from "@/lib/storage"
+import { Progress } from "@/components/ui/progress"
 
 interface AddVideoDialogProps {
   workspaceName: string
+  onVideoAdded: (videoData: any) => Promise<void>
   buttonText?: string
-  onVideoAdded: (videoData: any) => void
+  storageLeft: number // in GB
 }
 
-export default function AddVideoDialog({ workspaceName, buttonText = "Add Video", onVideoAdded }: AddVideoDialogProps) {
+export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText = "Add Video", storageLeft }: AddVideoDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [dueDate, setDueDate] = useState(() => {
@@ -35,6 +37,7 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
   })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -182,9 +185,16 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
     if (!title || !selectedFile) return
 
     setIsUploading(true)
+    setError(null)
     setUploadProgress(0)
     console.log("Starting upload process...")
 
+    if (selectedFile.size > storageLeft * 1024 * 1024 * 1024) {
+      setError(`You only have ${storageLeft.toFixed(2)}GB left. You cannot upload this video.`)
+      setIsUploading(false)
+      setUploadProgress(0)
+      return
+    }
     try {
       const filename = title + "-" + uuidv4() + ".mp4"
       const FILE_SIZE_THRESHOLD = 20 * 1024 * 1024 // 20MB
@@ -353,10 +363,14 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       const endTime = new Date()
       console.log("end time: ", endTime)
       console.log("time taken in milliseconds: ", endTime.getTime() - startTime.getTime())
-      onVideoAdded(videoData)
+      await onVideoAdded(videoData)
       resetForm()
     } catch (error) {
-      console.error("Error in upload process:", error)
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError("An error occurred while uploading the video")
+      }
       setIsUploading(false)
       setUploadProgress(0)
     }
@@ -387,8 +401,10 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add new video</DialogTitle>
-          <DialogDescription>Upload a video to the workspace</DialogDescription>
+          <DialogTitle>Add Video to {workspaceName}</DialogTitle>
+          <DialogDescription>
+            Upload a video file to add to this workspace. Maximum file size: {storageLeft}GB
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -473,6 +489,16 @@ export default function AddVideoDialog({ workspaceName, buttonText = "Add Video"
               </label>
             </div>
           </div>
+
+          {error && (
+            <p className="text-sm text-red-500">{error}</p>
+          )}
+
+          {selectedFile && (
+            <p className="text-sm text-gray-500">
+              Selected file: {selectedFile.name} ({(selectedFile.size / (1024 * 1024 * 1024)).toFixed(2)}GB)
+            </p>
+          )}
 
           {isUploading && (
             <div className="space-y-2">
