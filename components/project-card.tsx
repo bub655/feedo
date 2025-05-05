@@ -137,7 +137,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
     // update status in projects docs for this project
     for (const version of project.versions) {
       const versionDoc = doc(db, "projects", version.id)
-      updateDoc(versionDoc, { status })
+      updateDoc(versionDoc, { status: status })
     }
     
     // update status in workspace doc for this project

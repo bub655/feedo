@@ -418,7 +418,7 @@ export default function ReuploadVideoDialog({
         dueDate: currentVersion.dueDate,
         id: uuidv4(),
         progress: 0,
-        status: "in progress",
+        status: currentVersion.status,
         thumbnailId: thumbnailId,
         title: currentVersion.title,
         updatedAt: now,

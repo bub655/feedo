@@ -31,6 +31,7 @@ import {
   Clock
 } from "lucide-react"
 import { useParams, useSearchParams } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -602,6 +603,52 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     }
   }
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (!project) return
+
+    try {
+      // Update status in projects collection for all versions
+      for (const version of versions) {
+        const versionDoc = doc(db, "projects", version.id)
+        await updateDoc(versionDoc, { status: newStatus })
+      }
+      
+      // Update status in workspace document
+      const workspaceDoc = doc(db, "workspaces", workspaceId)
+      const workspaceSnapshot = await getDoc(workspaceDoc)
+      if (workspaceSnapshot.exists()) {
+        const workspaceData = workspaceSnapshot.data()
+        const projectIndex = workspaceData.projects.findIndex((p: any) => p.versions[0].id === versions[0].id)
+        if (projectIndex !== -1) {
+          workspaceData.projects[projectIndex].status = newStatus
+          await updateDoc(workspaceDoc, { projects: workspaceData.projects })
+        }
+      }
+
+      // Update local state
+      setProject(prev => prev ? { ...prev, status: newStatus } : null)
+    } catch (error) {
+      console.error("Error updating status:", error)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "In Progress":
+        return "bg-blue-100 text-blue-700"
+      case "Pending Review":
+        return "bg-amber-100 text-amber-700"
+      case "Approved":
+        return "bg-green-100 text-green-700"
+      case "Rejected":
+        return "bg-red-100 text-red-700"
+      case "Completed":
+        return "bg-purple-100 text-purple-700"
+      default:
+        return "bg-gray-100 text-gray-700"
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -789,6 +836,20 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                   <p className="text-sm text-gray-500">Last updated: {new Date(project.updatedAt).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-2">
+                  {canEdit && (
+                    <Select value={project.status} onValueChange={handleStatusChange}>
+                      <SelectTrigger className={`w-[180px] ${getStatusColor(project.status)}`}>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="In Progress" className="bg-blue-100 text-blue-700">In Progress</SelectItem>
+                        <SelectItem value="Pending Review" className="bg-amber-100 text-amber-700">Pending Review</SelectItem>
+                        <SelectItem value="Approved" className="bg-green-100 text-green-700">Approved</SelectItem>
+                        <SelectItem value="Rejected" className="bg-red-100 text-red-700">Rejected</SelectItem>
+                        <SelectItem value="Completed" className="bg-purple-100 text-purple-700">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -798,8 +859,8 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     <Download className="h-4 w-4" />
                     Download
                   </Button>
-          </div>
-          </div>
+                </div>
+              </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
               <div>
