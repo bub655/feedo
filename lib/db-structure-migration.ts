@@ -80,7 +80,7 @@ async function migrateProjects() {
             id: projectDoc.id || projectDoc.ref.id,
             videoUrl: projectData.videoUrl,
             thumbnail: projectData.thumbnail || await generateThumbnail(projectData.videoUrl),
-            status: typeof projectData.status === 'string' ? projectData.status : 'in progress',
+            status: typeof projectData.status === 'string' ? projectData.status : 'In Progress',
             createdAt: projectData.createdAt || serverTimestamp(),
             updatedAt: projectData.updatedAt || serverTimestamp(),
             comments: projectData.comments || [],
@@ -191,7 +191,7 @@ async function fixWorkspaceFormatting() {
                 // Ensure project has required fields
                 const updatedProject: Project = {
                     title: project.title || 'Untitled Project',
-                    status: project.status || 'in progress',
+                    status: project.status || 'In Progress',
                     size: project.size || 0,
                     progress: project.progress || 0,
                     createdAt: project.createdAt || now,

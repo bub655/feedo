@@ -347,7 +347,7 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
         dueDate: dueDate,
         id: videoId,
         progress: 0,
-        status: "in progress",
+        status: "In Progress",
         title: title,
         updatedAt: now,
         videoDuration: duration,

@@ -69,11 +69,11 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
       case "Pending Review":
         return "bg-amber-100 text-amber-700"
       case "Reviewed":
-        return "bg-green-100 text-green-700"
+        return "bg-purple-100 text-purple-700"
       case "Rejected":
         return "bg-red-100 text-red-700"
       case "Completed":
-        return "bg-purple-100 text-purple-700"
+        return "bg-green-100 text-green-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
@@ -217,7 +217,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
             <SelectContent>
               <SelectItem value="In Progress">In Progress</SelectItem>
               <SelectItem value="Pending Review">Pending Review</SelectItem>
-              <SelectItem value="Approved">Approved</SelectItem>
+              <SelectItem value="Reviewed">Reviewed</SelectItem>
               <SelectItem value="Rejected">Rejected</SelectItem>
               <SelectItem value="Completed">Completed</SelectItem>
             </SelectContent>

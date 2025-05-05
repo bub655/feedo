@@ -638,12 +638,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
         return "bg-blue-100 text-blue-700"
       case "Pending Review":
         return "bg-amber-100 text-amber-700"
-      case "Approved":
-        return "bg-green-100 text-green-700"
+      case "Reviewed":
+        return "bg-purple-100 text-purple-700"
       case "Rejected":
         return "bg-red-100 text-red-700"
       case "Completed":
-        return "bg-purple-100 text-purple-700"
+        return "bg-green-100 text-green-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
@@ -844,9 +844,9 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                       <SelectContent>
                         <SelectItem value="In Progress" className="bg-blue-100 text-blue-700">In Progress</SelectItem>
                         <SelectItem value="Pending Review" className="bg-amber-100 text-amber-700">Pending Review</SelectItem>
-                        <SelectItem value="Approved" className="bg-green-100 text-green-700">Approved</SelectItem>
+                        <SelectItem value="Reviewed" className="bg-purple-100 text-purple-700">Reviewed</SelectItem>
                         <SelectItem value="Rejected" className="bg-red-100 text-red-700">Rejected</SelectItem>
-                        <SelectItem value="Completed" className="bg-purple-100 text-purple-700">Completed</SelectItem>
+                        <SelectItem value="Completed" className="bg-green-100 text-green-700">Completed</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
