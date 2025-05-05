@@ -48,7 +48,12 @@ interface Versions {
 
 export default function ProjectCard({ project, workspaceId, client, versionNo }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
-  const [selectedVersion, setSelectedVersion] = useState(project.versions[0])
+  const [selectedVersion, setSelectedVersion] = useState(
+    project.versions.reduce((max, current) => 
+      (current.version > max.version ? current : max), 
+      project.versions[0]
+    )
+  )
   const [thumbnail, setThumbnail] = useState<string | null>(null)
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)

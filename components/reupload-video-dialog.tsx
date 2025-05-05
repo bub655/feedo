@@ -18,6 +18,103 @@ import {
 } from "@/components/ui/dialog"
 import { Progress } from "@/components/ui/progress"
 
+
+const generateVideoThumbnail = (file: File): Promise<string> => {
+  console.log("Generating Thumbnail")
+  return new Promise((resolve, reject) => {
+    console.log("Creating Video Element")
+    const video = document.createElement('video')
+    console.log("Video Element Created")
+    
+    video.setAttribute('playsinline', '')
+    video.setAttribute('muted', 'true')
+    video.setAttribute('preload', 'auto')
+    
+    const timeout = setTimeout(() => {
+      console.error("Thumbnail generation timed out")
+      URL.revokeObjectURL(video.src)
+      reject(new Error('Thumbnail generation timed out'))
+    }, 10000) // 10 second timeout
+    
+    video.addEventListener('loadedmetadata', () => {
+      console.log("Loaded Metadata")
+      console.log("Video Duration:", video.duration)
+      console.log("Original Video Width:", video.videoWidth)
+      console.log("Original Video Height:", video.videoHeight)
+      
+      // Set video size to a reasonable size for thumbnail
+      const maxSize = 320
+      const scale = Math.min(maxSize / video.videoWidth, maxSize / video.videoHeight)
+      video.width = video.videoWidth * scale
+      video.height = video.videoHeight * scale
+      console.log("Scaled Video Width:", video.width)
+      console.log("Scaled Video Height:", video.height)
+      
+      // Seek to 10% of the video duration
+      const seekTime = Math.max(1, video.duration * 0.1)
+      console.log("Seeking to time:", seekTime)
+      video.currentTime = seekTime
+    })
+
+    video.addEventListener('seeked', () => {
+      console.log("Seeked to position")
+      // Add a small delay to ensure the frame is ready
+      setTimeout(() => {
+        console.log("Creating canvas after delay")
+        const canvas = document.createElement('canvas')
+        canvas.width = video.width
+        canvas.height = video.height
+        console.log("Canvas size:", canvas.width, "x", canvas.height)
+        
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          console.log("Drawing Image")
+          // Fill background with white in case video is transparent
+          ctx.fillStyle = 'white'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          console.log("Image drawn, converting to data URL")
+          // Use lower quality for faster processing
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+          console.log("Generated data URL")
+          URL.revokeObjectURL(video.src)
+          clearTimeout(timeout)
+          resolve(dataUrl)
+        } else {
+          console.error("Could not create canvas context")
+          URL.revokeObjectURL(video.src)
+          clearTimeout(timeout)
+          reject(new Error('Could not create canvas context'))
+        }
+      }, 100) // Small delay to ensure frame is ready
+    })
+
+    video.addEventListener('error', (e) => {
+      console.error("Video Error:", e)
+      URL.revokeObjectURL(video.src)
+      clearTimeout(timeout)
+      reject(new Error('Error loading video'))
+    })
+
+    video.addEventListener('stalled', () => {
+      console.log("Video Stalled")
+    })
+
+    video.addEventListener('suspend', () => {
+      console.log("Video Suspend")
+    })
+
+    const objectUrl = URL.createObjectURL(file)
+    console.log("Created Object URL")
+    video.src = objectUrl
+    console.log("Set Video Source")
+    
+    // Try to force load
+    video.load()
+    console.log("Called video.load()")
+  })
+}
+
 const getVideoDurationInSeconds = (file: File): Promise<number> => {
   return new Promise((resolve) => {
     const video = document.createElement('video')
@@ -28,6 +125,19 @@ const getVideoDurationInSeconds = (file: File): Promise<number> => {
     }
     video.src = URL.createObjectURL(file)
   })
+}
+
+const uploadPart = async (presignedUrl: string, part: Blob, partNumber: number, type: string) => {
+  const response = await fetch(presignedUrl, {
+    method: 'PUT',
+    body: part,
+    headers: {
+      'Content-Type': type,
+    },
+  })
+  if (!response.ok) throw new Error(`Failed to upload part ${partNumber}`)
+  const etag = response.headers.get('ETag')
+  return { ETag: etag, PartNumber: partNumber }
 }
 
 interface ReuploadVideoDialogProps {
@@ -67,94 +177,160 @@ export default function ReuploadVideoDialog({
   const handleUpload = async () => {
     // put console.log throughout this function to make it readable and see whats going on and wheere it errors
     console.log("handleUpload function called")
+    //start time
+    const startTime = new Date()
+    console.log("start time: ", startTime)
     if (!file || !user) return
 
     setIsUploading(true)
     setError(null)
 
     try {
-      // Calculate video duration
-      console.log("file: ", file)
-      const duration = await getVideoDurationInSeconds(file)
-      console.log("duration: ", duration)
+      console.log("current version: ", currentVersion)
 
-      // Generate thumbnail
-      const video = document.createElement('video')
-      video.preload = 'metadata'
-      const thumbnailPromise = new Promise<string>((resolve) => {
-        video.onloadeddata = () => {
-          video.currentTime = 1
-          video.onseeked = () => {
-            const canvas = document.createElement('canvas')
-            canvas.width = video.videoWidth
-            canvas.height = video.videoHeight
-            const ctx = canvas.getContext('2d')
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-              resolve(canvas.toDataURL('image/jpeg'))
-            }
-          }
+      const filename = currentVersion.title + "-" + uuidv4() + ".mp4"
+      console.log("filename: ", filename)
+      const FILE_SIZE_THRESHOLD = 20 * 1024 * 1024 // 20MB
+      let key: string
+
+      if (file.size > FILE_SIZE_THRESHOLD) {
+        // Multipart upload for large files
+        console.log("Starting multipart upload for large file")
+        const response = await fetch('/api/upload/multipart/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: filename,
+            contentType: file.type,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to start multipart upload')
         }
-        video.src = URL.createObjectURL(file)
-      })
 
-      const thumbnail = await thumbnailPromise
-      URL.revokeObjectURL(video.src)
-      console.log("thumbnailPromise")
+        let {uploadId} = await response.json()
 
+        let totalSize = file.size
+        let chunkSize = 10 * 1024 * 1024 // 10MB
+        let numChunks = Math.ceil(totalSize / chunkSize)
 
-      // Get presigned URL from API
-      const response = await fetch('/api/upload/presign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-        }),
-      })
+        let presignedUrls = await fetch('/api/upload/multipart/presign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ fileName: filename, uploadId: uploadId, partNumbers: numChunks }),
+        })
 
-      if (!response.ok) {
-        throw new Error('Failed to get upload URL')
+        if (!presignedUrls.ok) {
+          throw new Error('Failed to get presigned URLs')
+        }
+
+        let { presignedUrls: presignedUrlsData } = await presignedUrls.json()
+        console.log("Presigned URLs: ", presignedUrlsData)
+
+        let parts: any[] = []
+        const uploadPromises = []
+
+        for (let i = 0; i < numChunks; i++) {
+          let start = i * chunkSize;
+          let end = Math.min(start + chunkSize, totalSize)
+          let part = file.slice(start, end)
+          let presignedUrl = presignedUrlsData[i]
+
+          uploadPromises.push(uploadPart(presignedUrl, part, i + 1, file.type))
+        }
+
+        const uploadResponses = await Promise.all(uploadPromises)
+        uploadResponses.forEach((response, i) => {
+          parts.push({
+            ETag: response.ETag,
+            PartNumber: response.PartNumber,
+          })
+        })
+
+        const completeResponse = await fetch('/api/upload/multipart/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filename: filename, uploadId: uploadId, parts: parts }),
+        })
+
+        if (!completeResponse.ok) {
+          throw new Error('Failed to complete multipart upload')
+        }
+
+        let { data, key: uploadKey, fields, cdnUrl } = await completeResponse.json()
+        key = uploadKey
+        console.log("MULTIPART UPLOAD KEY: ", key)
+        console.log("Complete Response: ", data)
+      } else {
+        // Single upload for small files
+        console.log("Starting single upload for small file")
+        const response = await fetch('/api/upload/presign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: filename,
+            contentType: file.type,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to get upload URL')
+        }
+
+        const { url, fields, key: uploadKey } = await response.json()
+        key = uploadKey
+        // console.log("Single Upload Key: ", key)
+        const formData = new FormData()
+        Object.entries(fields).forEach(([key, value]) => {
+          formData.append(key, value as string)
+        })
+        formData.append('file', file)
+
+        const uploadResponse = await fetch(url, {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed')
+        }
       }
 
-      const { url, fields, key, cdnUrl } = await response.json()
-
-      console.log("url: ", url)
-      console.log("fields: ", fields)
-      console.log("key: ", key)
-      console.log("cdnUrl: ", cdnUrl)
-      // Create form data with presigned fields
-      const formData = new FormData()
-      Object.entries(fields).forEach(([key, value]) => {
-        formData.append(key, value as string)
-      })
-      formData.append('file', file)
-
-      // Upload to S3 using presigned URL
-      const uploadResponse = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error('Upload failed')
+      // Generate thumbnail and get duration
+      // console.log("THE PATH SHOULD BE: ", key)
+      // console.log("Generating thumbnail")
+      let thumbnail: string
+      try {
+        thumbnail = await generateVideoThumbnail(file)
+        console.log("Thumbnail generated")
+      } catch (error) {
+        console.error("Failed to generate thumbnail, using placeholder:", error)
+        thumbnail = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" // 1x1 transparent PNG
       }
+      const duration = await getVideoDurationInSeconds(file)
+      console.log("Duration: ", duration)
 
-      console.log("key: ", key)
-
-      // save thumbnail to thumbnail collection
+      // Create thumbnail document first
       const thumbnailId = uuidv4()
       const thumbnailDoc = {
         id: thumbnailId,
         data: thumbnail,
         createdAt: serverTimestamp(),
       }
-      console.log("thumbnailDoc: ", thumbnailDoc)
+
+      // console.log("thumbnailDoc: ", thumbnailDoc)
       const thumbnailRef = doc(db, "thumbnails", thumbnailId)
       await setDoc(thumbnailRef, thumbnailDoc)
-      console.log("thumbnail saved to thumbnails collection")
+      // console.log("thumbnail saved to thumbnails collection")
       // const projectRef = doc(db, "projects", projectId)
       const now = new Date()
       const newVersion = {
@@ -173,27 +349,34 @@ export default function ReuploadVideoDialog({
         videoSize: file.size,
         videoType: file.type,
         videoUrl: key,
-
       }
 
-      // createw new project document
+      // create new project document
       const projectRef = doc(db, "projects", newVersion.id)
       await setDoc(projectRef, newVersion)
       console.log("new version created")
-      console.log(newVersion)
-      console.log("workspace id", workspaceId)
+      // console.log(newVersion)
+      // console.log("workspace id", workspaceId)
       // find the project in the workspace and update it with the new version
       const workspaceRef = doc(db, "workspaces", workspaceId)
       const workspace = await getDoc(workspaceRef)
       const workspaceData = workspace.data()
-      console.log("workspace data")
+      // console.log("workspace data")
       if (!workspaceData) throw new Error('Workspace not found')
 
       // get project index
       let foundProjectIndex = 0
-      while (foundProjectIndex < workspaceData.projects.length) {
+      let check = false
+      console.log("workspaceData.projects", workspaceData.projects)
+      console.log("workspaceData.projects.length", workspaceData.projects.length)
+      console.log("projectId", projectId)
+      while (foundProjectIndex < workspaceData.projects.length && !check) {
+
         for (const version of workspaceData.projects[foundProjectIndex].versions) {
           if(version.id === projectId) {
+            console.log("found project index", foundProjectIndex)
+            console.log("version", version.id)
+            check = true
             break
           }
         }
@@ -235,6 +418,10 @@ export default function ReuploadVideoDialog({
       //   currentVersion: newVersion.version,
       //   updatedAt: serverTimestamp()
       // })
+
+      const endTime = new Date()
+      console.log("end time: ", endTime)
+      console.log("time taken in milliseconds: ", endTime.getTime() - startTime.getTime())
 
       onClose()
       router.push(`/dashboard/video/${newVersion.id}?workspaceId=${workspaceId}`)
