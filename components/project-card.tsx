@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Calendar, MoreVertical, Play, User, Loader2 } from "lucide-react"
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { useUser } from "@clerk/nextjs"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -57,6 +58,9 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
   const [thumbnail, setThumbnail] = useState<string | null>(null)
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const { user } = useUser()
+  const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
+  const [userPermission, setUserPermission] = useState<string>("viewer")
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -109,6 +113,25 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
     fetchThumbnail()
   }, [selectedVersion])
 
+  useEffect(() => {
+    const fetchUserPermission = async () => {
+      try {
+        const workspaceDoc = await getDoc(doc(db, "workspaces", workspaceId))
+        if (workspaceDoc.exists()) {
+          const workspaceData = workspaceDoc.data()
+          const collaborator = workspaceData.collaborators.find((c: any) => c.email === userEmail)
+          setUserPermission(collaborator?.permission || "viewer")
+        }
+      } catch (error) {
+        console.error("Error fetching user permission:", error)
+      }
+    }
+
+    fetchUserPermission()
+  }, [workspaceId, userEmail])
+
+  const canEdit = userPermission === "owner" || userPermission === "editor"
+
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
@@ -145,21 +168,23 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
             <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="-mr-2 h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Edit</DropdownMenuItem>
-              <DropdownMenuItem>Duplicate</DropdownMenuItem>
-              <DropdownMenuItem>Share</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canEdit && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="-mr-2 h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Edit</DropdownMenuItem>
+                <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                <DropdownMenuItem>Share</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         <div className="mt-3">
