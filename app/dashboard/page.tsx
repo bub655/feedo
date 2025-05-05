@@ -33,19 +33,29 @@ export default function WorkspacePage() {
   const [expandedWorkspace, setExpandedWorkspace] = useState<string | null>(null)
   const [workspaces, setWorkspaces] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [userTier, setUserTier] = useState<string>("free")
+  const [storageUsed, setStorageUsed] = useState(0) // in GB
 
-  // Add useEffect to log workspaces changes
-  useEffect(() => {
-    console.log("Workspaces updated:", workspaces);
-  }, [workspaces]);
-
-  // Storage and stats data
-  const storageUsed = 35 // percentage
-  const storageTotal = 50 // GB
-  const storageLeft = storageTotal - (storageTotal * storageUsed) / 100
+  // Stats data
   const pendingReviews = 5
   const completedProjects = 18
   const activeProjects = 24
+
+  // Storage limits based on tier
+  const getStorageLimit = (tier: string) => {
+    switch (tier) {
+      case "premium":
+        return 2048 // 2TB
+      case "enterprise":
+        return 8192 // 8TB
+      default: // free
+        return 2 // 2GB
+    }
+  }
+
+  const storageTotal = getStorageLimit(userTier)
+  const storageLeft = storageTotal - storageUsed
+  const storageUsedPercentage = (storageUsed / storageTotal) * 100
 
   const { user } = useUser()
 
@@ -95,6 +105,42 @@ export default function WorkspacePage() {
     };
 
     fetchWorkspaces();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const userDocRef = doc(db, "UID", user.primaryEmailAddress?.emailAddress || user.id);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserTier(userData.tier || "free");
+          
+          // Calculate total storage used across all workspaces
+          const workspaceIds = Array.from(new Set(userData.workspaces || []));
+          let totalStorageUsed = 0;
+          
+          for (const workspaceId of workspaceIds) {
+            const workspaceDoc = await getDoc(doc(db, "workspaces", workspaceId as string));
+            if (workspaceDoc.exists()) {
+              const workspaceData = workspaceDoc.data();
+              totalStorageUsed += (workspaceData.size || 0) / (1024 * 1024 * 1024); // Convert bytes to GB
+            }
+          }
+          
+          setStorageUsed(totalStorageUsed);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
   }, [user]);
 
   const handleAddTeamMember = () => {
@@ -308,10 +354,10 @@ export default function WorkspacePage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Storage Usage</span>
               <span className="text-sm font-medium text-gray-700">
-                {storageUsed}% of {storageTotal}GB used ({storageLeft.toFixed(1)}GB left)
+                {storageUsedPercentage.toFixed(1)}% of {storageTotal}GB used ({storageLeft.toFixed(1)}GB left)
               </span>
             </div>
-            <Progress value={storageUsed} className="h-2" />
+            <Progress value={storageUsedPercentage} className="h-2" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
