@@ -711,7 +711,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                       <div className="flex gap-2 mt-2">
                         <Input
                           readOnly
-                          value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}`}
+                          value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
                           className="flex-1"
                         />
                         <Button
