@@ -97,6 +97,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
   const [teamMemberError, setTeamMemberError] = useState<string | null>(null)
   const [resolvedItems, setResolvedItems] = useState<(Comment | Annotation)[]>([])
   const [versions, setVersions] = useState<{ id: string; thumbnail: string; version: string; videoSize: number; videoType: string; videoUrl: string;}[]>([])
+  const [userPermission, setUserPermission] = useState<string>("viewer")
 
   // Add useEffect to fetch workspace data and set team members
   useEffect(() => {
@@ -230,6 +231,27 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
 
     fetchVersions();
   }, [workspaceId, projectId]);
+
+  useEffect(() => {
+    const fetchUserPermission = async () => {
+      if (!workspaceId || !user) return
+      
+      try {
+        const workspaceDoc = await getDoc(doc(db, "workspaces", workspaceId))
+        if (workspaceDoc.exists()) {
+          const workspaceData = workspaceDoc.data()
+          const collaborator = workspaceData.collaborators.find((c: any) => c.email === user.primaryEmailAddress?.emailAddress)
+          setUserPermission(collaborator?.permission || "viewer")
+        }
+      } catch (error) {
+        console.error("Error fetching user permission:", error)
+      }
+    }
+
+    fetchUserPermission()
+  }, [workspaceId, user])
+
+  const canEdit = userPermission === "owner" || userPermission === "editor"
 
   const handleResolveComment = async (commentId: string) => {
     if (!project) return
@@ -620,113 +642,117 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">{project.title}</h1>
               <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-1.5"
-                onClick={() => setIsReuploadDialogOpen(true)}
-              >
-                <Upload className="h-4 w-4" />
-                Reupload
-              </Button>
-              <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
-                <DialogTrigger asChild>
+              {canEdit && (
+                <>
                   <Button 
-                    variant="outline"
+                    variant="outline" 
                     size="sm" 
                     className="gap-1.5"
+                    onClick={() => setIsReuploadDialogOpen(true)}
                   >
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Share Video</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Invite Team Members</label>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Enter email address"
-                          value={newTeamMember}
-                          onChange={(e) => {
-                            setNewTeamMember(e.target.value)
-                            setTeamMemberError(null)
-                          }}
-                          className="flex-1"
-                        />
-                        <select
-                          value={newTeamMemberPermission}
-                          onChange={(e) => setNewTeamMemberPermission(e.target.value)}
-                          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                        >
-                          <option value="editor">Editor</option>
-                          <option value="client">Client</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                        <Button type="button" onClick={handleAddTeamMember} className="bg-sky-500 hover:bg-sky-600 px-3">
-                          <Plus className="h-5 w-5" />
-                        </Button>
-                      </div>
-                      {teamMemberError && (
-                        <div className="text-red-500 text-sm mt-1">
-                          {teamMemberError}
-                        </div>
-                      )}
-
-                      {teamMembers.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm text-gray-500 mb-2">Team members:</p>
-                          <div className="space-y-2">
-                            {teamMembers
-                              .filter(({ permission }) => permission !== "owner")
-                              .map(({ email, permission }) => (
-                                <div
-                                  key={email}
-                                  className="flex items-center justify-between bg-gray-100 rounded-md px-3 py-2"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-800">{email}</span>
-                                    <span className="text-sm text-gray-500">({permission})</span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemoveTeamMember(email)}
-                                    className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
-                                  >
-                                    <X className="h-4 w-4" />
-                </Button>
-                                </div>
-                              ))}
+                    <Upload className="h-4 w-4" />
+                    Reupload
+                  </Button>
+                  <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        size="sm" 
+                        className="gap-1.5"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Share Video</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Invite Team Members</label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Enter email address"
+                              value={newTeamMember}
+                              onChange={(e) => {
+                                setNewTeamMember(e.target.value)
+                                setTeamMemberError(null)
+                              }}
+                              className="flex-1"
+                            />
+                            <select
+                              value={newTeamMemberPermission}
+                              onChange={(e) => setNewTeamMemberPermission(e.target.value)}
+                              className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                            >
+                              <option value="editor">Editor</option>
+                              <option value="client">Client</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                            <Button type="button" onClick={handleAddTeamMember} className="bg-sky-500 hover:bg-sky-600 px-3">
+                              <Plus className="h-5 w-5" />
+                            </Button>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                          {teamMemberError && (
+                            <div className="text-red-500 text-sm mt-1">
+                              {teamMemberError}
+                            </div>
+                          )}
 
-                    <div className="border-t pt-4">
-                      <label className="text-sm font-medium">Private Link</label>
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          readOnly
-                          value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
-                          className="flex-1"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}`)
-                          }}
-                        >
-                          Copy Link
-                </Button>
+                          {teamMembers.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-sm text-gray-500 mb-2">Team members:</p>
+                              <div className="space-y-2">
+                                {teamMembers
+                                  .filter(({ permission }) => permission !== "owner")
+                                  .map(({ email, permission }) => (
+                                    <div
+                                      key={email}
+                                      className="flex items-center justify-between bg-gray-100 rounded-md px-3 py-2"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-gray-800">{email}</span>
+                                        <span className="text-sm text-gray-500">({permission})</span>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveTeamMember(email)}
+                                        className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
+                                      >
+                                        <X className="h-4 w-4" />
+                  </Button>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t pt-4">
+                          <label className="text-sm font-medium">Private Link</label>
+                          <div className="flex gap-2 mt-2">
+                            <Input
+                              readOnly
+                              value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
+                              className="flex-1"
+                            />
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}`)
+                              }}
+                            >
+                              Copy Link
+                  </Button>
+                </div>
               </div>
-            </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
             </div>
           </div>
         </div>
