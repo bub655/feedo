@@ -190,12 +190,22 @@ export default function ReuploadVideoDialog({
           // Calculate total storage used across all workspaces
           const workspaceIds = Array.from(new Set(userData.workspaces || []));
           let totalStorageUsed = 0;
+          const userEmail = user.primaryEmailAddress?.emailAddress || user.id;
           
           for (const workspaceId of workspaceIds) {
             const workspaceDoc = await getDoc(doc(db, "workspaces", workspaceId as string));
             if (workspaceDoc.exists()) {
               const workspaceData = workspaceDoc.data();
-              totalStorageUsed += (workspaceData.size || 0) / (1024 * 1024 * 1024); // Convert bytes to GB
+              // Check if user has owner or editor permissions
+              const userPermission = workspaceData.collaborators?.find(
+                (collaborator: { email: string; permission: string }) => 
+                collaborator.email === userEmail
+              )?.permission;
+
+              // Only count storage if user is owner or editor
+              if (userPermission === "owner" || userPermission === "editor") {
+                totalStorageUsed += (workspaceData.size || 0) / (1024 * 1024 * 1024); // Convert bytes to GB
+              }
             }
           }
           

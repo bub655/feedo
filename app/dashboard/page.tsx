@@ -76,14 +76,26 @@ export default function WorkspacePage() {
           if (workspaceIds && workspaceIds.length > 0) {
             // Reset storage used before calculating
             setStorageUsed(0);
+            const userEmail = user.primaryEmailAddress?.emailAddress || user.id;
             
             // Fetch workspace details and filter out deleted workspaces
             const fetchedWorkspaces = await Promise.all(
               workspaceIds.map(async (workspaceId: string) => {
                 const workspaceDocRef = doc(db, "workspaces", workspaceId);
                 const workspaceDoc = await getDoc(workspaceDocRef);
-                // Update storage used
-                setStorageUsed(prev => prev + (workspaceDoc.data()?.size || 0) / (1024 * 1024 * 1024)); // Convert bytes to GB
+                if (workspaceDoc.exists()) {
+                  const workspaceData = workspaceDoc.data();
+                  // Check if user has owner or editor permissions
+                  const userPermission = workspaceData.collaborators?.find(
+                    (collaborator: { email: string; permission: string }) => 
+                    collaborator.email === userEmail
+                  )?.permission;
+
+                  // Only count storage if user is owner or editor
+                  if (userPermission === "owner" || userPermission === "editor") {
+                    setStorageUsed(prev => prev + (workspaceData.size || 0) / (1024 * 1024 * 1024)); // Convert bytes to GB
+                  }
+                }
                 return workspaceDoc.exists() ? { id: workspaceId, ...workspaceDoc.data() } : null;
               })
             );
