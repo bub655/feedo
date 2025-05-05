@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Calendar, MoreVertical, Play, User, Loader2 } from "lucide-react"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useUser } from "@clerk/nextjs"
 
@@ -68,7 +68,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
         return "bg-blue-100 text-blue-700"
       case "Pending Review":
         return "bg-amber-100 text-amber-700"
-      case "Approved":
+      case "Reviewed":
         return "bg-green-100 text-green-700"
       case "Rejected":
         return "bg-red-100 text-red-700"
@@ -132,6 +132,28 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
 
   const canEdit = userPermission === "owner" || userPermission === "editor"
 
+  const changeStatus = async (status: string) => {
+    console.log("status", status)
+    // update status in projects docs for this project
+    for (const version of project.versions) {
+      const versionDoc = doc(db, "projects", version.id)
+      updateDoc(versionDoc, { status })
+    }
+    
+    // update status in workspace doc for this project
+    const workspaceDoc = doc(db, "workspaces", workspaceId)
+    const workspaceSnapshot = await getDoc(workspaceDoc)
+    if (workspaceSnapshot.exists()) {
+      const workspaceData = workspaceSnapshot.data()
+      const projectIndex = workspaceData.projects.findIndex((p: any) => p.versions[0].id === project.versions[0].id)
+      if(projectIndex !== -1) {
+        workspaceData.projects[projectIndex].status = status
+        await updateDoc(workspaceDoc, { projects: workspaceData.projects })
+      }
+    }
+    setStatus(status)
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
@@ -188,7 +210,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
         </div>
 
         <div className="mt-3">
-          <Select value={status} onValueChange={setStatus}>
+          <Select value={status} onValueChange={changeStatus}>
             <SelectTrigger className={`h-7 text-xs font-medium ${getStatusColor(status || "in progress")}`}>
               <SelectValue placeholder="Status" />
             </SelectTrigger>
