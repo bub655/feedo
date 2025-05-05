@@ -618,11 +618,19 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       const workspaceSnapshot = await getDoc(workspaceDoc)
       if (workspaceSnapshot.exists()) {
         const workspaceData = workspaceSnapshot.data()
-        const projectIndex = workspaceData.projects.findIndex((p: any) => p.versions[0].id === versions[0].id)
-        if (projectIndex !== -1) {
-          workspaceData.projects[projectIndex].status = newStatus
+        let foundProjectIndex = -1
+        for (const project of workspaceData.projects) {
+          const projectIndex = project.versions.findIndex((p: any) => p.id === versions[0].id)
+          foundProjectIndex++
+          if(projectIndex !== -1) {
+            break
+          }
+        }
+        if (foundProjectIndex !== -1) {
+          workspaceData.projects[foundProjectIndex].status = newStatus
           await updateDoc(workspaceDoc, { projects: workspaceData.projects })
         }
+
       }
 
       // Update local state
