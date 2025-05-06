@@ -248,7 +248,7 @@ export default function ReuploadVideoDialog({
     console.log("newStorageUsed: ", newStorageUsed)
     if (newStorageUsed > storageLimit) {
       //say how much is left instead of saying how much is needed
-      setError(`You have ${storageLimit - newStorageUsed}GB of storage left. Please delete some content or upgrade your plan.`)
+      setError(`You have ${(storageLimit - storageUsed).toFixed(2)}GB of storage left. Please delete some content or upgrade your plan.`)
       return
     }
 
