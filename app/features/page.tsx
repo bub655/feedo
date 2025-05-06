@@ -1,5 +1,6 @@
 import Navbar from "@/components/navbar"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function FeaturesPage() {
   return (
@@ -19,21 +20,23 @@ export default function FeaturesPage() {
               Streamline your video feedback and approval process. Get better results, faster.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-3 mb-6">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 text-lg font-semibold">Start Free Trial</Button>
-              <Button variant="outline" className="px-6 py-2 text-lg font-semibold">Explore Features</Button>
+              <Link href="/dashboard">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 text-lg font-semibold">Start Free Trial</Button>
+              </Link>
+              <a href="#why-feedo" className="px-6 pt-1 text-lg font-semibold rounded-md border border-gray-300 bg-white hover:bg-gray-100 transition-colors duration-150 text-gray-900" style={{display: 'inline-block'}}>Explore Features</a>
             </div>
           </div>
         </section>
 
         {/* Why Teams Choose Feedo */}
-        <section className="bg-white py-12">
+        <section className="bg-white py-12" id="why-feedo">
           <div className="container mx-auto px-12">
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Why Teams Choose Feedo</h2>
             <p className="text-gray-600 text-center mb-10 max-w-2xl mx-auto">
               Designed for video professionals who need feedback that's clear, contextual, and actionable.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-left">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-left">
                 <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A2 2 0 0020 6.382V5a2 2 0 00-2-2H6a2 2 0 00-2 2v1.382a2 2 0 00.447 1.342L9 10m6 0v4m0 0l-4.553 2.276A2 2 0 016 17.618V19a2 2 0 002 2h8a2 2 0 002-2v-1.382a2 2 0 00-.447-1.342L15 14z" /></svg>
@@ -47,7 +50,7 @@ export default function FeaturesPage() {
                   <li>Track revision progress</li>
                 </ul>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-left">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-left">
                 <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9 6 9-6" /></svg>
@@ -61,7 +64,7 @@ export default function FeaturesPage() {
                   <li>Keep projects organized</li>
                 </ul>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-left">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-left">
                 <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
@@ -85,7 +88,7 @@ export default function FeaturesPage() {
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Powerful Features</h2>
             <p className="text-gray-600 text-center mb-10 max-w-2xl mx-auto">Everything you need to streamline your video workflow</p>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-center">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-center">
                 <div className="flex justify-center mb-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M16 3.13a4 4 0 010 7.75M8 3.13a4 4 0 000 7.75" /></svg>
@@ -94,7 +97,7 @@ export default function FeaturesPage() {
                 <h4 className="font-semibold mb-1">Team Collaboration</h4>
                 <p className="text-gray-500 text-sm">Invite unlimited team members to collaborate on your videos</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-center">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-center">
                 <div className="flex justify-center mb-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -103,7 +106,7 @@ export default function FeaturesPage() {
                 <h4 className="font-semibold mb-1">Time-Stamped Comments</h4>
                 <p className="text-gray-500 text-sm">Add precise feedback at exact moments in your videos</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-center">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-center">
                 <div className="flex justify-center mb-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7l9 6 9-6" /></svg>
@@ -112,7 +115,7 @@ export default function FeaturesPage() {
                 <h4 className="font-semibold mb-1">Version History</h4>
                 <p className="text-gray-500 text-sm">Keep track of all revisions and feedback history in one place</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm text-center">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-center">
                 <div className="flex justify-center mb-2">
                   <span className="inline-block bg-blue-50 p-2 rounded-full">
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
@@ -158,7 +161,7 @@ export default function FeaturesPage() {
             <p className="text-blue-100 mb-6">Join thousands of creators and teams who trust Feedo</p>
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               <Button className="bg-white text-blue-600 hover:bg-blue-50 font-semibold px-6 py-2 text-lg">Start Free Trial</Button>
-              <Button variant="outline" className="bg-blue-500 border-white text-white px-6 py-2 text-lg hover:bg-blue-700 hover:text-white">Get Started</Button>
+              <Button variant="outline" className="bg-blue-500 border-white text-white px-6 py-2 text-lg hover:bg-blue-700 hover:text-white">See Demo</Button>
             </div>
           </div>
         </section>

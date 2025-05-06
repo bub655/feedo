@@ -323,7 +323,7 @@ export default function Home() {
                   </Link>
                 </div>
 
-                <div className="rounded-lg bg-sky-800 p-8">
+                <div className="rounded-xl bg-sky-800 p-8">
                   <div className="mb-4">
                     <h3 className="text-2xl font-bold">Free</h3>
                     <p className="text-sky-200">For individuals</p>
@@ -343,7 +343,7 @@ export default function Home() {
                       <svg className="mr-2 h-5 w-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
-                      10GB storage
+                      2GB storage
                     </li>
                     <li className="flex items-center text-sky-100">
                       <svg className="mr-2 h-5 w-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,12 +356,6 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                       Basic annotation tools
-                    </li>
-                    <li className="flex items-center text-sky-100">
-                      <svg className="mr-2 h-5 w-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                      7-day video history
                     </li>
                   </ul>
                   <Button size="lg" className="w-full rounded-full bg-sky-500 hover:bg-sky-600">
