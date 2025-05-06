@@ -28,7 +28,7 @@ export default function WorkspacePage() {
   const [newWorkspaceName, setNewWorkspaceName] = useState("")
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("")
   const [newTeamMember, setNewTeamMember] = useState("")
-  const [newTeamMemberPermission, setNewTeamMemberPermission] = useState("viewer"); // Default permission
+  const [newTeamMemberPermission, setNewTeamMemberPermission] = useState("viewer")
   const [teamMembers, setTeamMembers] = useState<{ email: string; permission: string }[]>([])
   const [expandedWorkspace, setExpandedWorkspace] = useState<string | null>(null)
   const [workspaces, setWorkspaces] = useState<any[]>([])
@@ -36,11 +36,14 @@ export default function WorkspacePage() {
   const [userTier, setUserTier] = useState<string>("free")
   const [storageUsed, setStorageUsed] = useState<number>(0)
   const [isStorageLoading, setIsStorageLoading] = useState(true)
+  const [pendingReviews, setPendingReviews] = useState(0)
+  const [completedProjects, setCompletedProjects] = useState(0)
+  const [activeProjects, setActiveProjects] = useState(0)
 
   // Stats data
-  const pendingReviews = 5
-  const completedProjects = 18
-  const activeProjects = 24
+  // const pendingReviews = 5
+  // const completedProjects = 18
+  // const activeProjects = 24
 
   // Storage limits based on tier
   const getStorageLimit = (tier: string) => {
@@ -75,6 +78,9 @@ export default function WorkspacePage() {
           if (workspaceIds && workspaceIds.length > 0) {
             const userEmail = user.primaryEmailAddress?.emailAddress || user.id;
             let totalStorageUsed = 0;
+            let pendingCount = 0;
+            let completedCount = 0;
+            let activeCount = 0;
             
             // Fetch workspace details and filter out deleted workspaces
             const fetchedWorkspaces = await Promise.all(
@@ -93,6 +99,19 @@ export default function WorkspacePage() {
                   if (userPermission === "owner" || userPermission === "editor") {
                     totalStorageUsed += (workspaceData.size || 0) / (1024 * 1024 * 1024); // Convert bytes to GB
                   }
+
+                  // Count projects by status
+                  if (workspaceData.projects) {
+                    workspaceData.projects.forEach((project: any) => {
+                      if (project.status === "Pending Review") {
+                        pendingCount++;
+                      } else if (project.status === "Completed") {
+                        completedCount++;
+                      } else if (project.status === "In Progress") {
+                        activeCount++;
+                      }
+                    });
+                  }
                 }
                 return workspaceDoc.exists() ? { id: workspaceId, ...workspaceDoc.data() } : null;
               })
@@ -100,6 +119,9 @@ export default function WorkspacePage() {
             
             // Set the total storage used once after all calculations are done
             setStorageUsed(totalStorageUsed);
+            setPendingReviews(pendingCount);
+            setCompletedProjects(completedCount);
+            setActiveProjects(activeCount);
             
             // Filter out null values (deleted workspaces) and update user's workspace list
             const validWorkspaces = fetchedWorkspaces.filter(Boolean);
