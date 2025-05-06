@@ -231,6 +231,24 @@ export default function ReuploadVideoDialog({
     }
   }
 
+  const handleFileDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault()
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0]
+      if (droppedFile.type.startsWith('video/')) {
+        setFile(droppedFile)
+        setError(null)
+      } else {
+        setError('Please select a valid video file')
+      }
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   const handleUpload = async () => {
     console.log("handleUpload function called")
     const startTime = new Date()
@@ -241,11 +259,11 @@ export default function ReuploadVideoDialog({
     const storageLimit = getStorageLimit(userTier) // 2 gb
     const newFileSizeGB = file.size / (1024 * 1024 * 1024) // 0.12 GB
     // const currentVersionSizeGB = currentVersion.videoSize / (1024 * 1024 * 1024) // 0.1 2GB
-    console.log("storageLimit: ", storageLimit)
-    console.log("newFileSizeGB: ", newFileSizeGB)
-    console.log("storageUsed: ", storageUsed)
+    // console.log("storageLimit: ", storageLimit)
+    // console.log("newFileSizeGB: ", newFileSizeGB)
+    // console.log("storageUsed: ", storageUsed)
     const newStorageUsed = storageUsed + newFileSizeGB
-    console.log("newStorageUsed: ", newStorageUsed)
+    // console.log("newStorageUsed: ", newStorageUsed)
     if (newStorageUsed > storageLimit) {
       //say how much is left instead of saying how much is needed
       setError(`You have ${(storageLimit - storageUsed).toFixed(2)}GB of storage left. Please delete some content or upgrade your plan.`)
@@ -501,8 +519,14 @@ export default function ReuploadVideoDialog({
     }
   }
 
+  const handleOnClose = () => {
+    setFile(null)
+    setError(null)
+    onClose()
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOnClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Reupload Video</DialogTitle>
@@ -516,6 +540,8 @@ export default function ReuploadVideoDialog({
             <label
               htmlFor="video"
               className="flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100"
+              onDragOver={handleDragOver}
+              onDrop={handleFileDrop}
             >
               {file ? (
                 <div className="space-y-2">
