@@ -150,16 +150,19 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null)
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0])
     }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
+    setError(null)
     e.preventDefault()
   }
 
   const handleDrop = (e: React.DragEvent) => {
+    setError(null)
     e.preventDefault()
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setSelectedFile(e.dataTransfer.files[0])
@@ -383,6 +386,7 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
     setIsUploading(false)
     setUploadProgress(0)
     setIsOpen(false)
+    setError(null)
   }
 
   return (
@@ -492,12 +496,6 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
 
           {error && (
             <p className="text-sm text-red-500">{error}</p>
-          )}
-
-          {selectedFile && (
-            <p className="text-sm text-gray-500">
-              Selected file: {selectedFile.name} ({(selectedFile.size / (1024 * 1024 * 1024)).toFixed(2)}GB)
-            </p>
           )}
 
           {isUploading && (
