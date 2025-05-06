@@ -77,7 +77,7 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
         console.log("Seeking to time:", seekTime)
         video.currentTime = seekTime
       })
-
+  
       video.addEventListener('seeked', () => {
         console.log("Seeked to position")
         // Add a small delay to ensure the frame is ready
@@ -110,22 +110,22 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
           }
         }, 100) // Small delay to ensure frame is ready
       })
-
+  
       video.addEventListener('error', (e) => {
         console.error("Video Error:", e)
         URL.revokeObjectURL(video.src)
         clearTimeout(timeout)
         reject(new Error('Error loading video'))
       })
-
+  
       video.addEventListener('stalled', () => {
         console.log("Video Stalled")
       })
-
+  
       video.addEventListener('suspend', () => {
         console.log("Video Suspend")
       })
-
+  
       const objectUrl = URL.createObjectURL(file)
       console.log("Created Object URL")
       video.src = objectUrl
