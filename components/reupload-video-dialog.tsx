@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Upload, X } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { db } from "@/lib/firebase"
-import { doc, updateDoc, arrayUnion, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
+import { doc, updateDoc, arrayUnion, setDoc, getDoc, serverTimestamp, increment } from "firebase/firestore"
 import { v4 as uuidv4 } from 'uuid'
 
 import { Button } from "@/components/ui/button"
@@ -223,17 +223,6 @@ export default function ReuploadVideoDialog({
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
       if (selectedFile.type.startsWith('video/')) {
-        // Check if the new file would exceed storage limit
-        const storageLimit = getStorageLimit(userTier)
-        const newFileSizeGB = selectedFile.size / (1024 * 1024 * 1024)
-        const currentVersionSizeGB = currentVersion.videoSize / (1024 * 1024 * 1024)
-        const newTotalStorage = storageUsed - currentVersionSizeGB + newFileSizeGB
-
-        if (newTotalStorage > storageLimit) {
-          setError(`This upload would exceed your storage limit of ${storageLimit}GB. Please upgrade your plan or delete some content.`)
-          return
-        }
-
         setFile(selectedFile)
         setError(null)
       } else {
@@ -249,13 +238,17 @@ export default function ReuploadVideoDialog({
     if (!file || !user) return
 
     // Double check storage limit before upload
-    const storageLimit = getStorageLimit(userTier)
-    const newFileSizeGB = file.size / (1024 * 1024 * 1024)
-    const currentVersionSizeGB = currentVersion.videoSize / (1024 * 1024 * 1024)
-    const newTotalStorage = storageUsed - currentVersionSizeGB + newFileSizeGB
-
-    if (newTotalStorage > storageLimit) {
-      setError(`This upload would exceed your storage limit of ${storageLimit}GB. Please upgrade your plan or delete some content.`)
+    const storageLimit = getStorageLimit(userTier) // 2 gb
+    const newFileSizeGB = file.size / (1024 * 1024 * 1024) // 0.12 GB
+    // const currentVersionSizeGB = currentVersion.videoSize / (1024 * 1024 * 1024) // 0.1 2GB
+    console.log("storageLimit: ", storageLimit)
+    console.log("newFileSizeGB: ", newFileSizeGB)
+    console.log("storageUsed: ", storageUsed)
+    const newStorageUsed = storageUsed + newFileSizeGB
+    console.log("newStorageUsed: ", newStorageUsed)
+    if (newStorageUsed > storageLimit) {
+      //say how much is left instead of saying how much is needed
+      setError(`You have ${storageLimit - newStorageUsed}GB of storage left. Please delete some content or upgrade your plan.`)
       return
     }
 
@@ -263,10 +256,10 @@ export default function ReuploadVideoDialog({
     setError(null)
 
     try {
-      console.log("current version: ", currentVersion)
+      // console.log("current version: ", currentVersion)
 
       const filename = currentVersion.title + "-" + uuidv4() + ".mp4"
-      console.log("filename: ", filename)
+      // console.log("filename: ", filename)
       const FILE_SIZE_THRESHOLD = 20 * 1024 * 1024 // 20MB
       let key: string
 
@@ -307,7 +300,7 @@ export default function ReuploadVideoDialog({
         }
 
         let { presignedUrls: presignedUrlsData } = await presignedUrls.json()
-        console.log("Presigned URLs: ", presignedUrlsData)
+        // console.log("Presigned URLs: ", presignedUrlsData)
 
         let parts: any[] = []
         const uploadPromises = []
@@ -344,7 +337,7 @@ export default function ReuploadVideoDialog({
         let { data, key: uploadKey, fields, cdnUrl } = await completeResponse.json()
         key = uploadKey
         console.log("MULTIPART UPLOAD KEY: ", key)
-        console.log("Complete Response: ", data)
+        // console.log("Complete Response: ", data)
       } else {
         // Single upload for small files
         console.log("Starting single upload for small file")
@@ -442,11 +435,9 @@ export default function ReuploadVideoDialog({
       if (!workspaceData) throw new Error('Workspace not found')
 
       // get project index
+      console.log("workspaceData.projects: ", workspaceData.projects)
       let foundProjectIndex = 0
       let check = false
-      console.log("workspaceData.projects", workspaceData.projects)
-      console.log("workspaceData.projects.length", workspaceData.projects.length)
-      console.log("projectId", projectId)
       while (foundProjectIndex < workspaceData.projects.length && !check) {
 
         for (const version of workspaceData.projects[foundProjectIndex].versions) {
@@ -470,7 +461,7 @@ export default function ReuploadVideoDialog({
         version: workspaceData.projects[projectIndex].versions.reduce((max: number, version: any) => Math.max(max, version.version), 0) + 1,
         videoSize: newVersion.videoSize,
       })
-      workspaceData.projects[projectIndex].size = workspaceData.projects[projectIndex].size + newVersion.videoSize
+      workspaceData.projects[projectIndex].size += newVersion.videoSize
       workspaceData.projects[projectIndex].updatedAt = now
       workspaceData.projects[projectIndex].numVersions = workspaceData.projects[projectIndex].versions.length
       // delete the first element in the project.versions array until the size is less than 1048576
@@ -479,15 +470,15 @@ export default function ReuploadVideoDialog({
         workspaceData.projects[projectIndex].size = workspaceData.projects[projectIndex].versions.reduce((sum: number, version: any) => sum + version.videoSize, 0)
         workspaceData.projects[projectIndex].numVersions = workspaceData.projects[projectIndex].versions.length
       }
-      console.log("workspace data", workspaceData)
-      console.log("workspace data length", JSON.stringify(workspaceData).length); // in bytes
+      // console.log("workspace data", workspaceData)
+      // console.log("workspace data length", JSON.stringify(workspaceData).length); // in bytes
       //projects
-      console.log("workspace data projects length", JSON.stringify(workspaceData.projects).length)
-      console.log("workspace data projects", workspaceData.projects)
+      // console.log("workspace data projects length", JSON.stringify(workspaceData.projects).length)
+      // console.log("workspace data projects", workspaceData.projects)
 
       await updateDoc(workspaceRef, {
         projects: workspaceData.projects,
-        size: workspaceData.projects[projectIndex].size + newVersion.videoSize,
+        size: increment(newVersion.videoSize),
       })
       console.log("workspace data updated")
       // await updateDoc(projectRef, {
@@ -537,9 +528,10 @@ export default function ReuploadVideoDialog({
                       onClick={(e) => {
                         e.stopPropagation()
                         setFile(null)
+                        setError(null)
                       }}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4"/>
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
