@@ -504,8 +504,13 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
+      // Ensure the filename has a proper extension
+      let filename = project.title || 'video'
+      if (!filename.toLowerCase().endsWith('.mp4')) {
+        filename += '.mp4'
+      }
       a.href = url
-      a.download = project.title || 'video'
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -513,7 +518,6 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     } catch (error) {
       console.error('Error downloading video:', error)
     }
-
   }
 
   const handleAddTeamMember = async () => {
