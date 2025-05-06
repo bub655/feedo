@@ -70,13 +70,11 @@ export default function WorkspacePage() {
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-          // just make all elements of the array unique
           const workspaceIds = Array.from(new Set((userDoc.data() as {workspaces: string[]}).workspaces));
           
           if (workspaceIds && workspaceIds.length > 0) {
-            // Reset storage used before calculating
-            setStorageUsed(0);
             const userEmail = user.primaryEmailAddress?.emailAddress || user.id;
+            let totalStorageUsed = 0;
             
             // Fetch workspace details and filter out deleted workspaces
             const fetchedWorkspaces = await Promise.all(
@@ -93,12 +91,16 @@ export default function WorkspacePage() {
 
                   // Only count storage if user is owner or editor
                   if (userPermission === "owner" || userPermission === "editor") {
-                    setStorageUsed(prev => prev + (workspaceData.size || 0) / (1024 * 1024 * 1024)); // Convert bytes to GB
+                    totalStorageUsed += (workspaceData.size || 0) / (1024 * 1024 * 1024); // Convert bytes to GB
                   }
                 }
                 return workspaceDoc.exists() ? { id: workspaceId, ...workspaceDoc.data() } : null;
               })
             );
+            
+            // Set the total storage used once after all calculations are done
+            setStorageUsed(totalStorageUsed);
+            
             // Filter out null values (deleted workspaces) and update user's workspace list
             const validWorkspaces = fetchedWorkspaces.filter(Boolean);
             
