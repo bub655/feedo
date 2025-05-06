@@ -22,7 +22,8 @@ interface ProjectCardProps {
   project: WorkspaceProject,
   client: string,
   workspaceId: string,
-  versionNo: number
+  versionNo: number,
+  tier: string
 }
 
 interface WorkspaceProject {
@@ -47,7 +48,7 @@ interface Versions {
   videoUrl: string,
 }
 
-export default function ProjectCard({ project, workspaceId, client, versionNo }: ProjectCardProps) {
+export default function ProjectCard({ project, workspaceId, client, versionNo, tier }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
   const [selectedVersion, setSelectedVersion] = useState(
     project.versions.reduce((max, current) => 
@@ -190,7 +191,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo }:
             <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
-          {canEdit && (
+          {canEdit && tier !== "free" && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="-mr-2 h-8 w-8">

@@ -52,10 +52,11 @@ interface WorkspaceItemProps {
   isExpanded: boolean
   workspaceId: string
   onToggle: () => void
-  storageLeft: number // in GB
+  storageLeft: number,
+  tier: string
 }
 
-export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onToggle, storageLeft }: WorkspaceItemProps) {
+export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onToggle, storageLeft, tier }: WorkspaceItemProps) {
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false)
   const { user } = useUser()
   const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
@@ -155,7 +156,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
           {workspace.projects.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {workspace.projects.map((project, index) => (
-                <ProjectCard key={index} project={project} client={workspace.name} versionNo={-1} workspaceId={workspaceId}/>
+                <ProjectCard key={index} project={project} client={workspace.name} versionNo={-1} workspaceId={workspaceId} tier={tier} />
               ))}
             </div>
           ) : (
