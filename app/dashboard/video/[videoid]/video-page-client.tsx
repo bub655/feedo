@@ -337,11 +337,11 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     try {
       const docRef = doc(db, "projects", projectId)
       const timestamp = formatTime(currentTime)
-      
-      if (annotationId) {
-        // Update existing annotation
-        const updatedAnnotations = annotations.map(annotation => 
-          annotation.id === annotationId
+
+      if (selectedAnnotation) {
+        // Update existing annotation by ID
+        const updatedAnnotations = annotations.map(annotation =>
+          annotation.id === selectedAnnotation.id
             ? {
                 ...annotation,
                 data: annotationData,
@@ -351,11 +351,9 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
               }
             : annotation
         )
-
         await updateDoc(docRef, {
           annotations: updatedAnnotations
         })
-
         setAnnotations(updatedAnnotations)
       } else {
         // Create new annotation
@@ -371,14 +369,11 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
           isResolved: false,
           resolved: null
         }
-
         await updateDoc(docRef, {
           annotations: arrayUnion(newAnnotation)
         })
-
         setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation])
       }
-      
       setIsDrawing(false)
       setSelectedAnnotation(null)
     } catch (error) {
@@ -456,6 +451,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     const [seconds, milliseconds = '0'] = secondsPart.split('.')
     const timeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
     setSeekTo(timeInMs / 1000) // Convert to seconds for video seeking
+    setTimeout(() => setSeekTo(undefined), 500)
     setIsPlaying(false)
     const video = document.querySelector('video')
     if (video) {
@@ -471,6 +467,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       const [seconds, milliseconds = '0'] = secondsPart.split('.')
       const timeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
       setSeekTo(timeInMs / 1000) // Convert to seconds for video seeking
+      setTimeout(() => setSeekTo(undefined), 500)
       setIsPlaying(false)
       const video = document.querySelector('video')
       if (video) {
@@ -490,7 +487,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
       const [minutesPart, secondsPart] = selectedAnnotation.timestamp.split(':')
       const [seconds, milliseconds = '0'] = secondsPart.split('.')
       const annotationTimeInMs = parseInt(minutesPart) * 60000 + parseInt(seconds) * 1000 + parseInt(milliseconds)
-      if (Math.abs(timeInMs - annotationTimeInMs) > 1000) { // 1 second tolerance in milliseconds
+      if (Math.abs(timeInMs - annotationTimeInMs) > 0) { // 0 second tolerance
         setSelectedAnnotation(null)
       }
     }
