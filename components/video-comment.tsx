@@ -3,7 +3,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, Trash2 } from "lucide-react"
 
 interface VideoCommentProps {
   user: {
@@ -22,6 +22,7 @@ interface VideoCommentProps {
   }
   onResolve?: () => void
   onClick?: () => void
+  onDelete?: () => void
 }
 
 export default function VideoComment({
@@ -32,7 +33,8 @@ export default function VideoComment({
   isResolved,
   resolvedBy,
   onResolve,
-  onClick
+  onClick,
+  onDelete
 }: VideoCommentProps) {
   return (
     <div 
@@ -47,30 +49,43 @@ export default function VideoComment({
         
         <div className="flex-1">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{user.name}</span>
-              <span className="text-sm text-gray-500">{time}</span>
+            <span className="font-medium text-gray-900">{user.name}</span>
+            <div className="flex items-center gap-1">
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete()
+                  }}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              )}
+              {onResolve && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onResolve()
+                  }}
+                  className={`${isResolved ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-green-500'}`}
+                >
+                  <CheckCircle className="h-5 w-5" />
+                </Button>
+              )}
             </div>
-            {onResolve && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onResolve()
-                }}
-                className={`${isResolved ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-green-500'}`}
-              >
-                <CheckCircle className="h-5 w-5" />
-              </Button>
-            )}
           </div>
 
           {timestamp && (
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex items-center justify-between">
               <Badge variant="secondary" className="bg-blue-100">
                 {timestamp.toString().substring(0, timestamp.toString().length-2)}
               </Badge>
+              <span className="text-sm text-gray-500">{time}</span>
             </div>
           )}
 

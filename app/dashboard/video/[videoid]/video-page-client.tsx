@@ -28,7 +28,8 @@ import {
   Upload,
   Plus,
   X,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react"
 import { useParams, useSearchParams } from 'next/navigation'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -661,6 +662,20 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
     }
   }
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!project) return
+    try {
+      const docRef = doc(db, "projects", projectId)
+      const updatedComments = comments.filter(c => c.id !== commentId)
+      await updateDoc(docRef, {
+        comments: updatedComments
+      })
+      setComments(updatedComments)
+    } catch (error) {
+      console.error("Error deleting comment:", error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -937,7 +952,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                     .sort((a, b) => 
                       b.createdAt.toMillis() - a.createdAt.toMillis()
                     ).map(item => {
-                    if ('data' in item) {
+                    if ('data' in item && 'timeFormatted' in item) {
                       // Render annotation
                       return (
                         <div
@@ -949,42 +964,62 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           }`}
                           onClick={() => handleAnnotationClick(item)}
                         >
-                          <div className="flex items-center gap-2 mb-2">
-                            <Avatar className="h-6 w-6">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-8 w-8">
                               <AvatarImage src={item.userImageUrl} alt={item.userName} />
                               <AvatarFallback>{item.userName[0]}</AvatarFallback>
                             </Avatar>
-                            <span className="text-sm font-medium">{item.userName}</span>
-                            <Badge variant="secondary" className="ml-auto bg-blue-100">
-                              {item.timeFormatted.toString().substring(0, item.timeFormatted.toString().length-2)}
-                            </Badge>
-                    <Button
-                            variant="ghost"
-                      size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleResolveAnnotation(item.id)
-                            }}
-                            className="text-gray-400 hover:text-green-700"
-                          >
-                            <CheckCircle className="h-5 w-5" />
-                    </Button>
-            </div>
-                          <div className="aspect-video overflow-hidden rounded-md">
-                            <img
-                              src={item.data}
-                              alt={`Annotation at ${item.timeFormatted}`}
-                              className="w-full h-full object-contain"
-                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-gray-900">{item.userName}</span>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteAnnotation(item.id)
+                                    }}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleResolveAnnotation(item.id)
+                                    }}
+                                    className="text-gray-400 hover:text-green-700"
+                                  >
+                                    <CheckCircle className="h-5 w-5" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between">
+                                <Badge variant="secondary" className="bg-blue-100">
+                                  {item.timeFormatted.toString().substring(0, item.timeFormatted.toString().length-2)}
+                                </Badge>
+                                <span className="text-sm text-gray-500">{new Date(item.createdAt.toDate()).toLocaleString()}</span>
+                              </div>
+                              <div className="mt-2 aspect-video overflow-hidden rounded-md">
+                                <img
+                                  src={item.data}
+                                  alt={`Annotation at ${item.timeFormatted}`}
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )
-                    } else {
+                    } else if ('content' in item) {
                       // Render comment
                       return (
-                  <VideoComment
+                        <VideoComment
                           key={item.id}
-                    user={{
+                          user={{
                             id: item.userId,
                             name: item.userName,
                             imageUrl: item.userImageUrl
@@ -1000,9 +1035,11 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           } : undefined}
                           onResolve={() => handleResolveComment(item.id)}
                           onClick={() => handleCommentClick(item)}
+                          onDelete={() => handleDeleteComment(item.id)}
                         />
                       )
                     }
+                    return null;
                   })}
                 </div>
 
