@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase" // Import Firestore instance
 import { collection, addDoc, setDoc, doc, getDocs, query, where, getDoc } from "firebase/firestore" // Import Firestore methods
 import { getAuth } from "firebase/auth" // Import Firebase Auth
 import { useUser } from "@clerk/nextjs"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -372,9 +373,11 @@ export default function WorkspacePage() {
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Storage & Stats</h2>
-            <Button variant="outline" size="sm">
-              Upgrade Plan
-            </Button>
+            <Link href="/pricing">
+              <Button variant="outline" size="sm">
+                Upgrade Plan
+              </Button>
+            </Link>
           </div>
 
           <div className="mb-4">
