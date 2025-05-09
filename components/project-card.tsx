@@ -17,6 +17,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface ProjectCardProps {
   project: WorkspaceProject,
@@ -58,6 +66,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
   )
   const [thumbnail, setThumbnail] = useState<string | null>(null)
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true)
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const { user } = useUser()
   const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
@@ -155,6 +164,11 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
     setStatus(status)
   }
 
+  const handleDelete = () => {
+    // Implement the delete logic here
+    console.log("Deleting project")
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md">
       <div className="relative">
@@ -191,7 +205,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
             <h3 className="font-medium text-gray-900">{project.title}</h3>
           </Link>
 
-          {canEdit && tier !== "free" && (
+          {canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="-mr-2 h-8 w-8">
@@ -204,7 +218,12 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
                 <DropdownMenuItem>Duplicate</DropdownMenuItem>
                 <DropdownMenuItem>Share</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="text-red-600"
+                  onClick={() => tier === "free" ? setShowUpgradeDialog(true) : handleDelete()}
+                >
+                  Delete
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -255,6 +274,27 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
           </div>
         </div>
       </div>
+
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upgrade Required</DialogTitle>
+            <DialogDescription>
+              To delete projects, you need to upgrade to a paid plan. This feature is available in our Premium and Enterprise tiers.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
+              Cancel
+            </Button>
+            <Link href="/pricing">
+              <Button className="bg-sky-500 hover:bg-sky-600">
+                View Pricing Plans
+              </Button>
+            </Link>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
