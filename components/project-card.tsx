@@ -215,7 +215,6 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>Edit</DropdownMenuItem>
-                <DropdownMenuItem>Duplicate</DropdownMenuItem>
                 <DropdownMenuItem>Share</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 

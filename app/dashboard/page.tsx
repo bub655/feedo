@@ -23,6 +23,7 @@ import {
 import DashboardNavbar from "@/components/dashboard-navbar"
 import WorkspaceItem from "@/components/workspace-item"
 import { Progress } from "@/components/ui/progress"
+import ProjectCard from "@/components/project-card"
 
 export default function WorkspacePage() {
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false)
@@ -40,6 +41,7 @@ export default function WorkspacePage() {
   const [pendingReviews, setPendingReviews] = useState(0)
   const [completedProjects, setCompletedProjects] = useState(0)
   const [activeProjects, setActiveProjects] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Stats data
   // const pendingReviews = 5
@@ -254,6 +256,23 @@ export default function WorkspacePage() {
     }
   }
 
+  // Filter logic for search
+  const filteredProjectCards = searchQuery.trim()
+    ? workspaces.flatMap((workspace: any) => {
+        const workspaceMatches = workspace.name.toLowerCase().includes(searchQuery.toLowerCase())
+        const matchingProjects = (workspace.projects || []).filter((project: any) =>
+          project.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        // If workspace matches, show all its projects; otherwise, only matching projects
+        if (workspaceMatches) {
+          return (workspace.projects || []).map((project: any) => ({ project, workspace }))
+        } else if (matchingProjects.length > 0) {
+          return matchingProjects.map((project: any) => ({ project, workspace }))
+        }
+        return []
+      })
+    : []
+
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardNavbar />
@@ -456,7 +475,12 @@ export default function WorkspacePage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div className="relative w-full md:w-auto md:min-w-[320px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input placeholder="Search workspaces and projects..." className="pl-10" />
+            <Input
+              placeholder="Search workspaces and projects..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
           <Tabs defaultValue="all" className="w-full md:w-auto">
@@ -477,6 +501,28 @@ export default function WorkspacePage() {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
             <h3 className="text-xl font-medium text-gray-900 mb-2">Loading workspaces...</h3>
           </div>
+        ) : searchQuery.trim() ? (
+          filteredProjectCards.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredProjectCards.map(({ project, workspace }, idx) => (
+                <ProjectCard
+                  key={project.versions[0]?.id || project.title + idx}
+                  project={project}
+                  client={workspace.name}
+                  versionNo={-1}
+                  workspaceId={workspace.id}
+                  tier={userTier}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <h3 className="text-xl font-medium text-gray-900 mb-2">No results found</h3>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                No workspaces or projects match your search.
+              </p>
+            </div>
+          )
         ) : workspaces.length > 0 ? (
           <div className="space-y-4">
             {workspaces.map((workspace) => (
