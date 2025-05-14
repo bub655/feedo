@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -69,7 +69,7 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
     }
   }, [seekTo])
 
-  const togglePlay = async () => {
+  const togglePlay = useCallback(async () => {
     const video = videoRef.current
     if (!video) return
 
@@ -87,7 +87,20 @@ export default function VideoPlayer({ videoUrl, thumbnailUrl, onTimeUpdate, onPl
       console.error("Playback error:", error)
       setIsPlaying(false)
     }
-  }
+  }, [isPlaying, onPause, onPlay])
+
+  useEffect(() => {
+    const handleSpacebar = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'button') return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+    window.addEventListener("keydown", handleSpacebar);
+    return () => window.removeEventListener("keydown", handleSpacebar);
+  }, [togglePlay]);
 
   const handleSeek = (value: number[]) => {
     const video = videoRef.current
