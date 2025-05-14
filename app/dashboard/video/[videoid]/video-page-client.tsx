@@ -1079,6 +1079,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                             handleAddComment();
                           }
                         }}
+                        onFocus={() => {
+                          const video = document.querySelector('video');
+                          if (video && !(video as HTMLVideoElement).paused) {
+                            (video as HTMLVideoElement).pause();
+                          }
+                        }}
                         />
                         {commentInput.startsWith("@time") && (
                           <div 
