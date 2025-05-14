@@ -56,6 +56,17 @@ interface Versions {
   videoUrl: string,
 }
 
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+  } else if (bytes >= 1024 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  } else if (bytes >= 1024) {
+    return (bytes / 1024).toFixed(2) + " KB";
+  }
+  return bytes + " B";
+}
+
 export default function ProjectCard({ project, workspaceId, client, versionNo, tier }: ProjectCardProps) {
   const [status, setStatus] = useState(project.status)
   const [selectedVersion, setSelectedVersion] = useState(
@@ -67,6 +78,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
   const [thumbnail, setThumbnail] = useState<string | null>(null)
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true)
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const { user } = useUser()
   const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
@@ -219,7 +231,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-red-600"
-                  onClick={() => tier === "free" ? setShowUpgradeDialog(true) : handleDelete()}
+                  onClick={() => tier === "free" ? setShowUpgradeDialog(true) : setShowDeleteDialog(true)}
                 >
                   Delete
                 </DropdownMenuItem>
@@ -269,7 +281,7 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
               <polyline points="3.29 7 12 12 20.71 7" />
               <line x1="12" x2="12" y1="22" y2="12" />
             </svg>
-            Type: {selectedVersion.videoType}
+            Size: {formatBytes(selectedVersion.videoSize)}
           </div>
         </div>
       </div>
@@ -291,6 +303,29 @@ export default function ProjectCard({ project, workspaceId, client, versionNo, t
                 View Pricing Plans
               </Button>
             </Link>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+          </DialogHeader>
+          <p>Are you sure you want to delete the project “{project.title}”? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-500 hover:bg-red-600"
+              onClick={async () => {
+                await handleDelete();
+                setShowDeleteDialog(false);
+              }}
+            >
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
