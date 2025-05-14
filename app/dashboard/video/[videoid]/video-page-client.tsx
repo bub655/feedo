@@ -1073,6 +1073,12 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           }}
                           className="w-full resize-none rounded-lg border border-gray-200 p-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         rows={3}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAddComment();
+                          }
+                        }}
                         />
                         {commentInput.startsWith("@time") && (
                           <div 
