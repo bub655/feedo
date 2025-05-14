@@ -427,7 +427,7 @@ export default function AddVideoDialog({ workspaceName, onVideoAdded, buttonText
 
           <div className="space-y-2">
             <label htmlFor="due-date" className="text-sm font-medium">
-              Submission Date
+              Due Date
             </label>
             <Input
               id="due-date"
