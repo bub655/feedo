@@ -108,7 +108,7 @@ export default function WorkspacePage() {
                     workspaceData.projects.forEach((project: any) => {
                       if (project.status === "Pending Review") {
                         pendingCount++;
-                      } else if (project.status === "Completed") {
+                      } else if (project.status === "Approved") {
                         completedCount++;
                       } else if (project.status === "In Progress") {
                         activeCount++;
