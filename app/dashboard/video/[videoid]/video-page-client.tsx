@@ -876,23 +876,20 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-medium text-gray-900">Project Details</h2>
-                  <p className="text-sm text-gray-500">Last updated: {new Date(project.updatedAt).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-2">
-                  {canEdit && (
-                    <Select value={project.status} onValueChange={handleStatusChange}>
-                      <SelectTrigger className={`w-[180px] ${getStatusColor(project.status)}`}>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="In Progress" className="bg-blue-100 text-blue-700">In Progress</SelectItem>
-                        <SelectItem value="Pending Review" className="bg-amber-100 text-amber-700">Pending Review</SelectItem>
-                        <SelectItem value="Reviewed" className="bg-purple-100 text-purple-700">Reviewed</SelectItem>
-                        <SelectItem value="Rejected" className="bg-red-100 text-red-700">Rejected</SelectItem>
-                        <SelectItem value="Approved" className="bg-green-100 text-green-700">Approved</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <Select value={project.status} onValueChange={handleStatusChange}>
+                    <SelectTrigger className={`w-[180px] ${getStatusColor(project.status)}`}>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="In Progress" className="my-1 bg-blue-100 text-blue-700">In Progress</SelectItem>
+                      <SelectItem value="Pending Review" className="my-1 bg-amber-100 text-amber-700">Pending Review</SelectItem>
+                      <SelectItem value="Reviewed" className="my-1 bg-purple-100 text-purple-700">Reviewed</SelectItem>
+                      <SelectItem value="Rejected" className="my-1 bg-red-100 text-red-700">Rejected</SelectItem>
+                      <SelectItem value="Approved" className="my-1 bg-green-100 text-green-700">Approved</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button 
                     variant="outline" 
                     size="sm" 
