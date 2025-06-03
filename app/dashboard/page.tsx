@@ -339,7 +339,6 @@ export default function WorkspacePage() {
                       className="border border-gray-300 rounded-md px-2 py-1 text-sm"
                     >
                       <option value="editor">Editor</option>
-                      <option value="client">Client</option>
                       <option value="viewer">Viewer</option>
                     </select>
                     <Button type="button" onClick={handleAddTeamMember} className="bg-sky-500 hover:bg-sky-600 px-3">
