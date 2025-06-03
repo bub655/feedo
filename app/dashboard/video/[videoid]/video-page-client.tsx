@@ -735,11 +735,13 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                         Share
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-lg">
                       <DialogHeader>
                         <DialogTitle>Share Video</DialogTitle>
                       </DialogHeader>
+                      
                       <div className="space-y-4">
+                        {/* Add new member section */}
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Invite Team Members</label>
                           <div className="flex gap-2">
@@ -762,7 +764,7 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                               <option value="viewer">Viewer</option>
                             </select>
                             <Button type="button" onClick={handleAddTeamMember} className="bg-sky-500 hover:bg-sky-600 px-3">
-                              <Plus className="h-5 w-5" />
+                              <Plus className="h-4 w-4" />
                             </Button>
                           </div>
                           {teamMemberError && (
@@ -770,55 +772,73 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                               {teamMemberError}
                             </div>
                           )}
-
-                          {teamMembers.length > 0 && (
-                            <div className="mt-4">
-                              <p className="text-sm text-gray-500 mb-2">Team members:</p>
-                              <div className="space-y-2">
-                                {teamMembers
-                                  .filter(({ permission }) => permission !== "owner")
-                                  .map(({ email, permission }) => (
-                                    <div
-                                      key={email}
-                                      className="flex items-center justify-between bg-gray-100 rounded-md px-3 py-2"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-gray-800">{email}</span>
-                                        <span className="text-sm text-gray-500">({permission})</span>
-                                      </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleRemoveTeamMember(email)}
-                                        className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
-                                      >
-                                        <X className="h-4 w-4" />
-                  </Button>
-                                    </div>
-                                  ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
 
+                        {/* Current members list */}
+                        {teamMembers.length > 0 && (
+                          <div className="space-y-3 max-h-96 overflow-y-auto">
+                            <label className="text-sm font-medium">Current Members</label>
+                            {teamMembers.map((collaborator, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-600 text-sm font-medium">
+                              {collaborator.email.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {collaborator.email}
+                              </p>
+                              {collaborator.email === user?.primaryEmailAddress?.emailAddress && (
+                                <p className="text-xs text-gray-500">(You)</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              collaborator.permission === 'owner' 
+                                ? 'bg-purple-100 text-purple-800'
+                                : collaborator.permission === 'editor'
+                                ? 'bg-blue-100 text-blue-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {collaborator.permission.charAt(0).toUpperCase() + collaborator.permission.slice(1)}
+                            </span>
+                            {/* Only show remove button for non-owners and if current user can edit */}
+                            {canEdit && collaborator.permission !== 'owner' && collaborator.email !== user?.primaryEmailAddress?.emailAddress && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveTeamMember(collaborator.email)}
+                                className="h-6 w-6 p-0 text-gray-500 hover:text-red-600"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                          </div>
+                        )}
+
+                        {/* Private link section */}
                         <div className="border-t pt-4">
                           <label className="text-sm font-medium">Private Link</label>
                           <div className="flex gap-2 mt-2">
                             <Input
                               readOnly
-                              value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
+                              value={`https://feedopro.com/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
                               className="flex-1"
                             />
                             <Button
                               variant="outline"
                               onClick={() => {
-                                navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}`)
+                                navigator.clipboard.writeText(`https://feedopro.com/dashboard/video/${projectId}?workspaceId=${workspaceId}`)
                               }}
                             >
                               Copy Link
-                  </Button>
-                </div>
-              </div>
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </DialogContent>
                   </Dialog>
