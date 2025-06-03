@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Building, ChevronDown, ChevronUp, Users, Video, Trash2, Plus, X } from "lucide-react"
 import ProjectCard from "@/components/project-card"
 import AddVideoDialog from "@/components/add-video-dialog"
@@ -69,10 +69,16 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
   const [newTeamMember, setNewTeamMember] = useState("")
   const [newTeamMemberPermission, setNewTeamMemberPermission] = useState("viewer")
   const [teamMemberError, setTeamMemberError] = useState<string | null>(null)
+  const [collaborators, setCollaborators] = useState<Collaborator[]>(workspace.collaborators)
   const { user } = useUser()
   const userEmail = user?.primaryEmailAddress?.emailAddress || user?.id
-  const userPermission = workspace.collaborators.find(c => c.email === userEmail)?.permission || "viewer"
+  const userPermission = collaborators.find(c => c.email === userEmail)?.permission || "viewer"
   const canEdit = userPermission === "owner" || userPermission === "editor"
+
+  // Sync local collaborators state with workspace prop
+  useEffect(() => {
+    setCollaborators(workspace.collaborators)
+  }, [workspace.collaborators])
 
   const handleVideoAdded = async (videoData: any) => {
     try {
@@ -136,7 +142,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
     if (!newTeamMember || !newTeamMemberPermission) return
 
     // Check if member already exists
-    const existingMember = workspace.collaborators.find(member => member.email === newTeamMember)
+    const existingMember = collaborators.find(member => member.email === newTeamMember)
     if (existingMember) {
       setTeamMemberError("This team member is already on the list")
       return
@@ -166,8 +172,8 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
       }
 
       // Update local state
-      workspace.collaborators = [...workspace.collaborators, newMember]
-      workspace.numMembers = (workspace.numMembers || workspace.collaborators.length) + 1
+      setCollaborators([...collaborators, newMember])
+      workspace.numMembers = (workspace.numMembers || collaborators.length) + 1
       
       setNewTeamMember("")
       setNewTeamMemberPermission("viewer")
@@ -180,7 +186,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
 
   const handleRemoveTeamMember = async (email: string) => {
     try {
-      const memberToRemove = workspace.collaborators.find(member => member.email === email)
+      const memberToRemove = collaborators.find(member => member.email === email)
       if (!memberToRemove) return
 
       const docRef = doc(db, "workspaces", workspaceId)
@@ -197,8 +203,8 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
       })
 
       // Update local state
-      workspace.collaborators = workspace.collaborators.filter(member => member.email !== email)
-      workspace.numMembers = Math.max(0, (workspace.numMembers || workspace.collaborators.length) - 1)
+      setCollaborators(collaborators.filter(member => member.email !== email))
+      workspace.numMembers = Math.max(0, (workspace.numMembers || collaborators.length) - 1)
     } catch (error) {
       console.error("Error removing team member:", error)
     }
@@ -222,7 +228,7 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
                 }}
               >
                 <Users className="h-4 w-4" />
-                {workspace.collaborators.length} members
+                {collaborators.length} members
               </span>
               <span className="flex items-center gap-1">
                 <Video className="h-4 w-4" />
@@ -276,112 +282,6 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              {/* Members dialog */}
-              <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Workspace Members</DialogTitle>
-                    <DialogDescription>
-                      Members of "{workspace.name}" workspace
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4">
-                    {/* Add new member section - only for owners/editors */}
-                    {canEdit && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Invite Team Members</label>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Enter email address"
-                            value={newTeamMember}
-                            onChange={(e) => {
-                              setNewTeamMember(e.target.value)
-                              setTeamMemberError(null)
-                            }}
-                            className="flex-1"
-                          />
-                          <select
-                            value={newTeamMemberPermission}
-                            onChange={(e) => setNewTeamMemberPermission(e.target.value)}
-                            className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                          >
-                            <option value="editor">Editor</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
-                          <Button 
-                            type="button" 
-                            onClick={handleAddTeamMember} 
-                            className="bg-sky-500 hover:bg-sky-600 px-3"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        {teamMemberError && (
-                          <div className="text-red-500 text-sm mt-1">
-                            {teamMemberError}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Current members list */}
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                      <label className="text-sm font-medium">Current Members</label>
-                      {workspace.collaborators.map((collaborator, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-600 text-sm font-medium">
-                              {collaborator.email.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
-                                {collaborator.email}
-                              </p>
-                              {collaborator.email === userEmail && (
-                                <p className="text-xs text-gray-500">(You)</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              collaborator.permission === 'owner' 
-                                ? 'bg-purple-100 text-purple-800'
-                                : collaborator.permission === 'editor'
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {collaborator.permission.charAt(0).toUpperCase() + collaborator.permission.slice(1)}
-                            </span>
-                            {/* Only show remove button for non-owners and if current user can edit */}
-                            {canEdit && collaborator.permission !== 'owner' && collaborator.email !== userEmail && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveTeamMember(collaborator.email)}
-                                className="h-6 w-6 p-0 text-gray-500 hover:text-red-600"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => {
-                      setShowMembersDialog(false)
-                      setNewTeamMember("")
-                      setNewTeamMemberPermission("viewer")
-                      setTeamMemberError(null)
-                    }}>
-                      Close
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
               {/* Delete confirmation dialog for paid tiers */}
               <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent>
@@ -409,6 +309,118 @@ export default function WorkspaceItem({ workspace, workspaceId, isExpanded, onTo
               </Dialog>
             </>
           )}
+          
+          {/* Members dialog - available to all users */}
+          <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Workspace Members</DialogTitle>
+                <DialogDescription>
+                  Members of "{workspace.name}" workspace
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                {/* Add new member section - only for owners/editors */}
+                {userPermission === "owner" && (
+                  <div className="space-y-2">
+                  
+                    <label className="text-sm font-medium">Invite Team Members</label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter email address"
+                        value={newTeamMember}
+                        onChange={(e) => {
+                          setNewTeamMember(e.target.value)
+                          setTeamMemberError(null)
+                        }}
+                        className="flex-1"
+                      />
+                      <select
+                        value={newTeamMemberPermission}
+                        onChange={(e) => setNewTeamMemberPermission(e.target.value)}
+                        className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      >
+                        <option value="editor">Editor</option>
+                        <option value="viewer">Viewer</option>
+                      </select>
+                      
+                      <Button
+                        type="button" 
+                        onClick={handleAddTeamMember} 
+                        className="bg-sky-500 hover:bg-sky-600 px-3"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      
+                    </div>
+      
+                    {teamMemberError && (
+                      <div className="text-red-500 text-sm mt-1">
+                        {teamMemberError}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Current members list */}
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <label className="text-sm font-medium">Current Members</label>
+                  {collaborators.map((collaborator, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-600 text-sm font-medium">
+                          {collaborator.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {collaborator.email}
+                          </p>
+                          {collaborator.email === userEmail && (
+                            <p className="text-xs text-gray-500">(You)</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          collaborator.permission === 'owner' || collaborator.permission === 'editor'
+                            ? 'bg-purple-100 text-purple-800'
+                            : collaborator.permission === 'viewer'
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {collaborator.permission.charAt(0).toUpperCase() + collaborator.permission.slice(1)}
+                        </span>
+                        {/* Only show remove button for non-owners and if current user can edit */}
+                        {userPermission === "owner" && collaborator.permission !== 'owner' && collaborator.email !== userEmail && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveTeamMember(collaborator.email)}
+                            className="h-6 w-6 p-0 text-gray-500 hover:text-red-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setShowMembersDialog(false)
+                  setNewTeamMember("")
+                  setNewTeamMemberPermission("viewer")
+                  setTeamMemberError(null)
+                }}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
           {isExpanded ? (
             <ChevronUp className="h-5 w-5 text-gray-500" />
           ) : (

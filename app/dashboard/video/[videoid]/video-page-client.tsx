@@ -825,13 +825,13 @@ export default function VideoPageClient({ projectId }: VideoPageClientProps) {
                           <div className="flex gap-2 mt-2">
                             <Input
                               readOnly
-                              value={`https://feedopro.com/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
+                              value={`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}?workspaceId=${workspaceId}`}
                               className="flex-1"
                             />
                             <Button
                               variant="outline"
                               onClick={() => {
-                                navigator.clipboard.writeText(`https://feedopro.com/dashboard/video/${projectId}?workspaceId=${workspaceId}`)
+                                navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/video/${projectId}?workspaceId=${workspaceId}`)
                               }}
                             >
                               Copy Link
